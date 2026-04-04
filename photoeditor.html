@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Batch Bildeditor mit Vorschau</title>
+  <style>
+    :root{
+      --bg:#0d1117;
+      --panel:#161b22;
+      --panel2:#1f2630;
+      --line:#30363d;
+      --text:#e6edf3;
+      --muted:#9da7b3;
+      --accent:#4f8cff;
+      --accent2:#3d73d9;
+      --danger:#ff6b6b;
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      background:linear-gradient(180deg,#0b0f14 0%, #10151d 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    }
+
+    body{
+      padding:14px;
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns:340px 1fr;
+      gap:14px;
+      max-width:1700px;
+      margin:0 auto;
+    }
+
+    .panel{
+      background:rgba(22,27,34,.96);
+      border:1px solid var(--line);
+      border-radius:20px;
+      overflow:hidden;
+      box-shadow:0 18px 50px rgba(0,0,0,.25);
+    }
+
+    .sidebar{
+      position:sticky;
+      top:14px;
+      max-height:calc(100vh - 28px);
+      overflow:auto;
+    }
+
+    .section{
+      padding:16px;
+      border-bottom:1px solid var(--line);
+    }
+
+    .section:last-child{border-bottom:0}
+
+    h1,h2,h3,p{margin:0}
+    h1{font-size:1.15rem;margin-bottom:8px}
+    h2{font-size:1rem;margin-bottom:10px}
+
+    .sub{
+      color:var(--muted);
+      font-size:.92rem;
+      line-height:1.45;
+      margin-bottom:12px;
+    }
+
+    .controls{
+      display:grid;
+      gap:12px;
+    }
+
+    .row{
+      display:grid;
+      gap:7px;
+    }
+
+    .two{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .three{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    label{
+      color:var(--muted);
+      font-size:.86rem;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    input[type="range"],
+    select{
+      width:100%;
+    }
+
+    input[type="file"]{
+      padding:12px;
+      border-radius:14px;
+      border:1px dashed #4a5564;
+      background:rgba(255,255,255,.03);
+      color:var(--muted);
+    }
+
+    input[type="number"], select{
+      background:var(--panel2);
+      color:var(--text);
+      border:1px solid #3b4657;
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:.95rem;
+    }
+
+    input[type="range"]{
+      accent-color:var(--accent);
+    }
+
+    button{
+      appearance:none;
+      border:1px solid #4477d8;
+      background:linear-gradient(180deg,var(--accent),var(--accent2));
+      color:white;
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:.94rem;
+      font-weight:600;
+      cursor:pointer;
+    }
+
+    button.secondary{
+      background:var(--panel2);
+      border-color:#3b4657;
+      color:var(--text);
+    }
+
+    button.danger{
+      background:rgba(255,107,107,.1);
+      border-color:rgba(255,107,107,.35);
+      color:#ffd1d1;
+    }
+
+    .button-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .value-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      color:var(--muted);
+      font-size:.84rem;
+    }
+
+    .workspace{
+      display:grid;
+      gap:14px;
+    }
+
+    .topbar{
+      padding:16px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .status{
+      border:1px solid #3b4657;
+      background:rgba(255,255,255,.03);
+      color:var(--muted);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:.86rem;
+      white-space:nowrap;
+    }
+
+    .grid-wrap{
+      padding:16px;
+    }
+
+    .summary{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+
+    .stat{
+      border:1px solid #3b4657;
+      background:rgba(255,255,255,.03);
+      border-radius:14px;
+      padding:10px 12px;
+      min-width:120px;
+    }
+
+    .stat .k{
+      color:var(--muted);
+      font-size:.78rem;
+      margin-bottom:6px;
+    }
+
+    .stat .v{
+      font-size:1rem;
+      font-weight:700;
+    }
+
+    .image-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      gap:14px;
+    }
+
+    .card{
+      border:1px solid #313845;
+      background:rgba(255,255,255,.03);
+      border-radius:18px;
+      overflow:hidden;
+    }
+
+    .card.selected{
+      border-color:var(--accent);
+      box-shadow:inset 0 0 0 1px rgba(79,140,255,.25);
+      background:rgba(79,140,255,.08);
+    }
+
+    .card-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px;
+      border-bottom:1px solid rgba(255,255,255,.05);
+    }
+
+    .card-head input[type="checkbox"]{
+      width:18px;
+      height:18px;
+      accent-color:var(--accent);
+      margin-top:2px;
+      flex:0 0 auto;
+    }
+
+    .name{
+      font-size:.9rem;
+      line-height:1.3;
+      word-break:break-word;
+    }
+
+    .meta{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.78rem;
+    }
+
+    .preview-wrap{
+      padding:12px;
+    }
+
+    .preview-box{
+      position:relative;
+      width:100%;
+      border-radius:16px;
+      overflow:hidden;
+      border:1px solid #374255;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        #0b1016;
+      background-size:22px 22px;
+      background-position:0 0, 11px 11px;
+      touch-action:none;
+      user-select:none;
+    }
+
+    .preview-box::before{
+      content:"";
+      display:block;
+      padding-top:var(--ratioPad,100%);
+    }
+
+    .preview-box canvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+      cursor:grab;
+    }
+
+    .crop-overlay{
+      position:absolute;
+      inset:0;
+      border:2px solid rgba(255,255,255,.92);
+      pointer-events:none;
+      box-shadow:inset 0 0 0 9999px rgba(0,0,0,.22);
+    }
+
+    .grid-lines{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.3;
+      background-image:
+        linear-gradient(to right, transparent 33.333%, rgba(255,255,255,.45) 33.333%, rgba(255,255,255,.45) 34%, transparent 34%, transparent 66.666%, rgba(255,255,255,.45) 66.666%, rgba(255,255,255,.45) 67%, transparent 67%),
+        linear-gradient(to bottom, transparent 33.333%, rgba(255,255,255,.45) 33.333%, rgba(255,255,255,.45) 34%, transparent 34%, transparent 66.666%, rgba(255,255,255,.45) 66.666%, rgba(255,255,255,.45) 67%, transparent 67%);
+    }
+
+    .card-foot{
+      padding:0 12px 12px 12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .mini-row{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      color:var(--muted);
+      font-size:.8rem;
+    }
+
+    .mini-controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .mini-controls button{
+      padding:8px 10px;
+      font-size:.82rem;
+      border-radius:10px;
+    }
+
+    .hint{
+      margin-top:10px;
+      border:1px solid rgba(79,140,255,.2);
+      background:rgba(79,140,255,.08);
+      color:#d8e6ff;
+      padding:12px;
+      border-radius:14px;
+      line-height:1.45;
+      font-size:.9rem;
+    }
+
+    .empty{
+      padding:34px 18px;
+      border:1px dashed #4a5564;
+      border-radius:16px;
+      text-align:center;
+      color:var(--muted);
+      background:rgba(255,255,255,.02);
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:.82rem;
+      line-height:1.4;
+    }
+
+    @media (max-width: 1050px){
+      .app{grid-template-columns:1fr}
+      .sidebar{
+        position:static;
+        max-height:none;
+      }
+    }
+
+    @media (max-width: 680px){
+      body{padding:10px}
+      .app{gap:10px}
+      .two, .three{grid-template-columns:1fr}
+      .image-grid{grid-template-columns:1fr}
+      .button-row{display:grid;grid-template-columns:1fr 1fr}
+      .button-row button{width:100%}
+      .topbar{flex-direction:column}
+      .status{white-space:normal}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Batch Bildeditor mit Vorschau</h1>
+        <p class="sub">
+          Alle Bilder gleichzeitig sehen, direkt als Vorschau im Raster, gemeinsam bearbeiten und exportieren.
+        </p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Markierung löschen</button>
+            <button id="clearBtn" class="danger">Alles löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Globale Anpassungen</h2>
+        <div class="controls">
+          <div class="row">
+            <label for="targetMode">Anwenden auf</label>
+            <select id="targetMode">
+              <option value="selected">Markierte Bilder</option>
+              <option value="all">Alle Bilder</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="brightness">Helligkeit</label><span id="brightnessVal">100%</span></div>
+            <input id="brightness" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="contrast">Kontrast</label><span id="contrastVal">100%</span></div>
+            <input id="contrast" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="saturation">Sättigung</label><span id="saturationVal">100%</span></div>
+            <input id="saturation" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="warmth">Wärme</label><span id="warmthVal">0</span></div>
+            <input id="warmth" type="range" min="-100" max="100" value="0" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="sharpness">Schärfe</label><span id="sharpnessVal">0</span></div>
+            <input id="sharpness" type="range" min="0" max="100" value="0" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="zoom">Zoom</label><span id="zoomVal">100%</span></div>
+            <input id="zoom" type="range" min="20" max="400" value="100" />
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="ratio">Format / Rahmen</label>
+              <select id="ratio">
+                <option value="1:1">1:1 Quadrat</option>
+                <option value="2:1">2:1 Querformat</option>
+                <option value="1:2">1:2 Hochformat</option>
+                <option value="4:5">4:5 Hochformat</option>
+                <option value="5:4">5:4 Querformat</option>
+                <option value="3:2">3:2 Querformat</option>
+                <option value="2:3">2:3 Hochformat</option>
+                <option value="16:9">16:9 Querformat</option>
+                <option value="9:16">9:16 Hochformat</option>
+                <option value="free">Frei</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label for="columns">Kachelgröße</label>
+              <select id="columns">
+                <option value="220">Kompakt</option>
+                <option value="260" selected>Normal</option>
+                <option value="320">Groß</option>
+                <option value="400">Sehr groß</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="three">
+            <div class="row">
+              <label for="format">Exportformat</label>
+              <select id="format">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPG</option>
+                <option value="image/webp">WEBP</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label for="quality">Qualität</label>
+              <input id="quality" type="number" min="0.1" max="1" step="0.05" value="0.92" />
+            </div>
+
+            <div class="row">
+              <label for="upscale">Upscale</label>
+              <select id="upscale">
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="bgFill">Leere Bereiche füllen</label>
+            <select id="bgFill">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiß</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="applyBtn">Werte anwenden</button>
+            <button id="fitBtn" class="secondary">Einpassen</button>
+            <button id="resetSelectedBtn" class="secondary">Reset markierte</button>
+          </div>
+
+          <div class="small">
+            Direkt in der Bildvorschau: <strong>ziehen</strong> = verschieben, <strong>Mausrad</strong> = zoomen.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <div class="button-row">
+          <button id="downloadSelectedBtn">Markierte exportieren</button>
+          <button id="downloadAllBtn" class="secondary">Alle exportieren</button>
+          <button id="splitSelectedBtn" class="secondary">Markierte in 4 Teile</button>
+          <button id="splitAllBtn" class="secondary">Alle in 4 Teile</button>
+        </div>
+        <div class="hint">
+          Die Vorschau ist direkt eingebaut. „In 4 Teile“ zerlegt das bearbeitete Exportbild in:
+          oben links, oben rechts, unten links, unten rechts.
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="panel topbar">
+        <div>
+          <h2>Rastervorschau</h2>
+          <p class="sub" style="margin:6px 0 0 0;">
+            Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.
+          </p>
+
+          <div class="summary">
+            <div class="stat">
+              <div class="k">Bilder</div>
+              <div class="v" id="statCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Markiert</div>
+              <div class="v" id="statSelected">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Format</div>
+              <div class="v" id="statRatio">1:1</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status" id="statusText">Bereit</div>
+      </div>
+
+      <div class="panel grid-wrap">
+        <div id="imageGrid" class="image-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const imageGrid = document.getElementById('imageGrid');
+    const statusText = document.getElementById('statusText');
+
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statRatio = document.getElementById('statRatio');
+
+    const controls = {
+      targetMode: document.getElementById('targetMode'),
+      brightness: document.getElementById('brightness'),
+      contrast: document.getElementById('contrast'),
+      saturation: document.getElementById('saturation'),
+      warmth: document.getElementById('warmth'),
+      sharpness: document.getElementById('sharpness'),
+      zoom: document.getElementById('zoom'),
+      ratio: document.getElementById('ratio'),
+      columns: document.getElementById('columns'),
+      format: document.getElementById('format'),
+      quality: document.getElementById('quality'),
+      upscale: document.getElementById('upscale'),
+      bgFill: document.getElementById('bgFill')
+    };
+
+    const labels = {
+      brightness: document.getElementById('brightnessVal'),
+      contrast: document.getElementById('contrastVal'),
+      saturation: document.getElementById('saturationVal'),
+      warmth: document.getElementById('warmthVal'),
+      sharpness: document.getElementById('sharpnessVal'),
+      zoom: document.getElementById('zoomVal')
+    };
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const applyBtn = document.getElementById('applyBtn');
+    const fitBtn = document.getElementById('fitBtn');
+    const resetSelectedBtn = document.getElementById('resetSelectedBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const splitSelectedBtn = document.getElementById('splitSelectedBtn');
+    const splitAllBtn = document.getElementById('splitAllBtn');
+
+    const state = {
+      items: [],
+      dragging: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function ratioParts(ratioStr) {
+      if (!ratioStr || ratioStr === 'free') {
+        return { w: 1, h: 1, pad: 100 };
+      }
+      const [w, h] = ratioStr.split(':').map(Number);
+      if (!w || !h) {
+        return { w: 1, h: 1, pad: 100 };
+      }
+      return { w, h, pad: (h / w) * 100 };
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function defaultEdit() {
+      return {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        warmth: 0,
+        sharpness: 0,
+        zoom: 100,
+        panX: 0,
+        panY: 0
+      };
+    }
+
+    function updateLabels() {
+      labels.brightness.textContent = `${controls.brightness.value}%`;
+      labels.contrast.textContent = `${controls.contrast.value}%`;
+      labels.saturation.textContent = `${controls.saturation.value}%`;
+      labels.warmth.textContent = `${controls.warmth.value}`;
+      labels.sharpness.textContent = `${controls.sharpness.value}`;
+      labels.zoom.textContent = `${controls.zoom.value}%`;
+      statRatio.textContent = controls.ratio.value;
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function targetItems() {
+      return controls.targetMode.value === 'all' ? state.items : selectedItems();
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function getPlacement(item, canvas) {
+      const baseScale = Math.min(canvas.width / item.img.width, canvas.height / item.img.height);
+      const scale = baseScale * (item.edit.zoom / 100);
+      const drawW = item.img.width * scale;
+      const drawH = item.img.height * scale;
+      const x = (canvas.width - drawW) / 2 + item.edit.panX;
+      const y = (canvas.height - drawH) / 2 + item.edit.panY;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function applyCanvasPostEffects(ctx, canvas, warmth, sharpness, fullPrecision) {
+      if (warmth === 0 && sharpness === 0) return;
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      if (warmth !== 0) {
+        const amount = warmth / 100;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i]     = clamp(data[i] + 28 * amount, 0, 255);
+          data[i + 1] = clamp(data[i + 1] + 6 * amount, 0, 255);
+          data[i + 2] = clamp(data[i + 2] - 28 * amount, 0, 255);
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      if (sharpness > 0) {
+        const strength = (sharpness / 100) * (fullPrecision ? 1.2 : 0.8);
+        const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const out = ctx.createImageData(src.width, src.height);
+        const s = src.data;
+        const d = out.data;
+        const w = src.width;
+        const h = src.height;
+
+        const centerWeight = 1 + strength * 4;
+        const sideWeight = -strength;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            for (let c = 0; c < 3; c++) {
+              const center = s[idx + c] * centerWeight;
+              const left   = s[((y * w + Math.max(0, x - 1)) * 4) + c] * sideWeight;
+              const right  = s[((y * w + Math.min(w - 1, x + 1)) * 4) + c] * sideWeight;
+              const up     = s[((Math.max(0, y - 1) * w + x) * 4) + c] * sideWeight;
+              const down   = s[((Math.min(h - 1, y + 1) * w + x) * 4) + c] * sideWeight;
+              d[idx + c] = clamp(center + left + right + up + down, 0, 255);
+            }
+            d[idx + 3] = s[idx + 3];
+          }
+        }
+        ctx.putImageData(out, 0, 0);
+      }
+    }
+
+    function drawPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b1016';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      const p = getPlacement(item, canvas);
+      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, canvas, item.edit.warmth, item.edit.sharpness, false);
+      }
+    }
+
+    function setupPreviewCanvas(item, box, canvas) {
+      const rect = box.getBoundingClientRect();
+      const w = Math.max(120, Math.round(rect.width * state.pixelRatio));
+      const h = Math.max(120, Math.round(rect.height * state.pixelRatio));
+      canvas.width = w;
+      canvas.height = h;
+      drawPreview(item, canvas);
+    }
+
+    function refreshStats() {
+      statCount.textContent = state.items.length;
+      statSelected.textContent = selectedItems().length;
+    }
+
+    function renderGrid() {
+      imageGrid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${controls.columns.value}px, 1fr))`;
+
+      if (!state.items.length) {
+        imageGrid.innerHTML = `<div class="empty">Noch keine Bilder geladen. Sobald du welche auswählst, erscheinen sie hier direkt als Vorschau.</div>`;
+        refreshStats();
+        return;
+      }
+
+      const ratio = ratioParts(controls.ratio.value);
+      imageGrid.innerHTML = '';
+
+      state.items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'card' + (item.selected ? ' selected' : '');
+        card.dataset.id = item.id;
+
+        card.innerHTML = `
+          <div class="card-head">
+            <div style="min-width:0;flex:1;">
+              <div class="name">${escapeHtml(item.name)}</div>
+              <div class="meta">${item.img.width} × ${item.img.height}</div>
+            </div>
+            <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
+          </div>
+
+          <div class="preview-wrap">
+            <div class="preview-box" data-role="preview-box" style="--ratioPad:${ratio.pad}%">
+              <canvas data-role="canvas"></canvas>
+              <div class="crop-overlay"></div>
+              <div class="grid-lines"></div>
+            </div>
+          </div>
+
+          <div class="card-foot">
+            <div class="mini-row">
+              <span>Zoom: ${Math.round(item.edit.zoom)}%</span>
+              <span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>
+            </div>
+
+            <div class="mini-controls">
+              <button class="secondary" data-action="fit">Einpassen</button>
+              <button class="secondary" data-action="reset">Reset</button>
+              <button class="secondary" data-action="export">Export</button>
+              <button class="secondary" data-action="split">4 Teile</button>
+            </div>
+          </div>
+        `;
+
+        imageGrid.appendChild(card);
+
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        setupPreviewCanvas(item, box, canvas);
+      });
+
+      refreshStats();
+    }
+
+    function refreshVisibleCanvases() {
+      document.querySelectorAll('.card').forEach(card => {
+        const item = state.items.find(x => x.id === card.dataset.id);
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        if (item && canvas && box) {
+          setupPreviewCanvas(item, box, canvas);
+        }
+      });
+      refreshStats();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve({ file, img });
+            img.onerror = reject;
+            img.src = reader.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      loaded.forEach(({ file, img }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img,
+          selected: true,
+          edit: defaultEdit()
+        });
+      });
+
+      renderGrid();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function applyGlobalValues() {
+      const targets = targetItems();
+      if (!targets.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit.brightness = Number(controls.brightness.value);
+        item.edit.contrast = Number(controls.contrast.value);
+        item.edit.saturation = Number(controls.saturation.value);
+        item.edit.warmth = Number(controls.warmth.value);
+        item.edit.sharpness = Number(controls.sharpness.value);
+        item.edit.zoom = Number(controls.zoom.value);
+      });
+
+      renderGrid();
+      setStatus(`Werte auf ${targets.length} Bild${targets.length === 1 ? '' : 'er'} angewendet`);
+    }
+
+    function fitTargets() {
+      const targets = targetItems();
+      if (!targets.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+      });
+
+      renderGrid();
+      setStatus(`Einpassung auf ${targets.length} Bild${targets.length === 1 ? '' : 'er'} gesetzt`);
+    }
+
+    function resetSelected() {
+      const targets = selectedItems();
+      if (!targets.length) {
+        setStatus('Keine Bilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit = defaultEdit();
+      });
+
+      renderGrid();
+      setStatus(`${targets.length} Bild${targets.length === 1 ? '' : 'er'} zurückgesetzt`);
+    }
+
+    function buildExportCanvas(item) {
+      const ratio = ratioParts(controls.ratio.value);
+      const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
+
+      let outW = Math.max(1, Math.round(item.img.width * upscale));
+      let outH = Math.round((ratio.h / ratio.w) * outW);
+
+      if (controls.ratio.value === 'free') {
+        outW = Math.max(1, Math.round(item.img.width * upscale));
+        outH = Math.max(1, Math.round(item.img.height * upscale));
+      }
+
+      const out = document.createElement('canvas');
+      out.width = outW;
+      out.height = outH;
+
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      const mime = controls.format.value;
+      const quality = clamp(Number(controls.quality.value) || 0.92, 0.1, 1);
+      const bgFill = controls.bgFill.value;
+
+      if (bgFill === 'white' || (bgFill === 'transparent' && mime === 'image/jpeg')) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, outW, outH);
+      } else if (bgFill === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, outW, outH);
+      }
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      const p = getPlacement(item, out);
+      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
+      }
+
+      const base = item.name.replace(/\.[^.]+$/, '');
+      return { out, mime, quality, upscale, base };
+    }
+
+    function downloadCanvas(canvas, filenameBase, mime, quality) {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL(mime, quality);
+      a.download = `${filenameBase}.${fileExtFromMime(mime)}`;
+      a.click();
+    }
+
+    function exportItem(item) {
+      const { out, mime, quality, upscale, base } = buildExportCanvas(item);
+      downloadCanvas(out, `${base}-edited-${upscale}x`, mime, quality);
+    }
+
+    async function splitItemIntoFour(item) {
+      const { out, mime, quality, upscale, base } = buildExportCanvas(item);
+
+      const halfW = Math.floor(out.width / 2);
+      const halfH = Math.floor(out.height / 2);
+
+      const parts = [
+        { name: 'oben-links',   sx: 0,      sy: 0,      sw: halfW,           sh: halfH },
+        { name: 'oben-rechts',  sx: halfW,  sy: 0,      sw: out.width-halfW, sh: halfH },
+        { name: 'unten-links',  sx: 0,      sy: halfH,  sw: halfW,           sh: out.height-halfH },
+        { name: 'unten-rechts', sx: halfW,  sy: halfH,  sw: out.width-halfW, sh: out.height-halfH }
+      ];
+
+      for (const part of parts) {
+        const tile = document.createElement('canvas');
+        tile.width = part.sw;
+        tile.height = part.sh;
+
+        const tctx = tile.getContext('2d');
+        tctx.imageSmoothingEnabled = true;
+        tctx.imageSmoothingQuality = 'high';
+
+        tctx.drawImage(
+          out,
+          part.sx, part.sy, part.sw, part.sh,
+          0, 0, part.sw, part.sh
+        );
+
+        downloadCanvas(tile, `${base}-${part.name}-${upscale}x`, mime, quality);
+        await new Promise(resolve => setTimeout(resolve, 180));
+      }
+    }
+
+    async function exportItems(items) {
+      if (!items.length) {
+        setStatus('Nichts zum Exportieren markiert');
+        return;
+      }
+
+      setStatus(`Exportiere ${items.length} Bild${items.length === 1 ? '' : 'er'}...`);
+
+      for (const item of items) {
+        exportItem(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} exportiert`);
+    }
+
+    async function splitItemsIntoFour(items) {
+      if (!items.length) {
+        setStatus('Keine Bilder zum Zerlegen markiert');
+        return;
+      }
+
+      setStatus(`Zerlege ${items.length} Bild${items.length === 1 ? '' : 'er'} in 4 Teile...`);
+
+      for (const item of items) {
+        await splitItemIntoFour(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} in 4 Teile exportiert`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      filesInput.value = '';
+      renderGrid();
+      setStatus('Alles gelöscht');
+    }
+
+    function itemFromCard(el) {
+      const card = el.closest('.card');
+      if (!card) return null;
+      return state.items.find(x => x.id === card.dataset.id) || null;
+    }
+
+    function getCanvasPoint(evt, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    filesInput.addEventListener('change', e => loadFiles(e.target.files));
+
+    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.zoom].forEach(el => {
+      el.addEventListener('input', updateLabels);
+      el.addEventListener('change', updateLabels);
+    });
+
+    controls.ratio.addEventListener('change', () => {
+      updateLabels();
+      renderGrid();
+    });
+
+    controls.columns.addEventListener('change', () => {
+      renderGrid();
+    });
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => item.selected = true);
+      renderGrid();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => item.selected = false);
+      renderGrid();
+      setStatus('Markierung gelöscht');
+    });
+
+    clearBtn.addEventListener('click', clearAll);
+    applyBtn.addEventListener('click', applyGlobalValues);
+    fitBtn.addEventListener('click', fitTargets);
+    resetSelectedBtn.addEventListener('click', resetSelected);
+    downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
+    downloadAllBtn.addEventListener('click', () => exportItems(state.items));
+    splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
+    splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
+
+    imageGrid.addEventListener('change', evt => {
+      if (!evt.target.matches('input[type="checkbox"]')) return;
+      const item = itemFromCard(evt.target);
+      if (!item) return;
+      item.selected = evt.target.checked;
+      evt.target.closest('.card').classList.toggle('selected', item.selected);
+      refreshStats();
+    });
+
+    imageGrid.addEventListener('click', evt => {
+      const btn = evt.target.closest('button[data-action]');
+      if (!btn) return;
+
+      const item = itemFromCard(btn);
+      if (!item) return;
+
+      const action = btn.dataset.action;
+
+      if (action === 'fit') {
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+        renderGrid();
+        setStatus(`Eingepasst: ${item.name}`);
+      }
+
+      if (action === 'reset') {
+        item.edit = defaultEdit();
+        renderGrid();
+        setStatus(`Zurückgesetzt: ${item.name}`);
+      }
+
+      if (action === 'export') {
+        exportItem(item);
+        setStatus(`Exportiert: ${item.name}`);
+      }
+
+      if (action === 'split') {
+        splitItemIntoFour(item);
+        setStatus(`In 4 Teile zerlegt: ${item.name}`);
+      }
+    });
+
+    imageGrid.addEventListener('pointerdown', evt => {
+      const canvas = evt.target.closest('canvas');
+      if (!canvas) return;
+
+      const item = itemFromCard(canvas);
+      if (!item) return;
+
+      evt.preventDefault();
+      const p = getCanvasPoint(evt, canvas);
+
+      state.dragging = {
+        id: item.id,
+        startX: p.x,
+        startY: p.y,
+        panX: item.edit.panX,
+        panY: item.edit.panY,
+        canvas
+      };
+
+      canvas.setPointerCapture(evt.pointerId);
+      canvas.style.cursor = 'grabbing';
+    });
+
+    imageGrid.addEventListener('pointermove', evt => {
+      if (!state.dragging) return;
+
+      const canvas = state.dragging.canvas;
+      const item = state.items.find(x => x.id === state.dragging.id);
+      if (!canvas || !item) return;
+
+      const p = getCanvasPoint(evt, canvas);
+      item.edit.panX = state.dragging.panX + (p.x - state.dragging.startX);
+      item.edit.panY = state.dragging.panY + (p.y - state.dragging.startY);
+
+      drawPreview(item, canvas);
+
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) {
+        row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      }
+    });
+
+    function endDrag(evt) {
+      if (!state.dragging) return;
+      try {
+        state.dragging.canvas.releasePointerCapture(evt.pointerId);
+      } catch (e) {}
+      state.dragging.canvas.style.cursor = 'grab';
+      state.dragging = null;
+    }
+
+    imageGrid.addEventListener('pointerup', endDrag);
+    imageGrid.addEventListener('pointercancel', endDrag);
+
+    imageGrid.addEventListener('wheel', evt => {
+      const canvas = evt.target.closest('canvas');
+      if (!canvas) return;
+
+      const item = itemFromCard(canvas);
+      if (!item) return;
+
+      evt.preventDefault();
+      item.edit.zoom = clamp(item.edit.zoom + (evt.deltaY < 0 ? 6 : -6), 20, 400);
+      drawPreview(item, canvas);
+
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) {
+        row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      }
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__batchResizeTimer);
+      window.__batchResizeTimer = setTimeout(refreshVisibleCanvases, 80);
+    });
+
+    updateLabels();
+    renderGrid();
+  </script>
+</body>
+</html>
