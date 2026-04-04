@@ -165,6 +165,22 @@
       font-size:.84rem;
     }
 
+    .view-switch{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .view-switch button.active{
+      border-color:#86aefc;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
+    }
+
+    .view-panel.hidden,
+    .workspace-pane.hidden{
+      display:none;
+    }
+
     .workspace{
       display:grid;
       gap:14px;
@@ -190,6 +206,85 @@
 
     .grid-wrap{
       padding:16px;
+    }
+
+    .showcase-tools{
+      display:grid;
+      gap:14px;
+    }
+
+    .showcase-stage-wrap{
+      padding:16px;
+    }
+
+    .showcase-stage{
+      position:relative;
+      min-height:520px;
+      border-radius:18px;
+      border:1px solid #374255;
+      overflow:auto;
+      background:
+        radial-gradient(circle at top left, rgba(79,140,255,.12), transparent 35%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)),
+        #0b1016;
+    }
+
+    .showcase-stage-inner{
+      position:relative;
+      min-width:100%;
+      min-height:100%;
+    }
+
+    .showcase-empty{
+      position:absolute;
+      inset:24px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      color:var(--muted);
+      border:1px dashed #4a5564;
+      border-radius:16px;
+      background:rgba(255,255,255,.02);
+      padding:18px;
+    }
+
+    .showcase-item{
+      position:absolute;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      overflow:hidden;
+      background:rgba(15,20,28,.9);
+      box-shadow:0 12px 30px rgba(0,0,0,.22);
+      cursor:grab;
+      user-select:none;
+      touch-action:none;
+    }
+
+    .showcase-item.dragging{
+      cursor:grabbing;
+      box-shadow:0 18px 38px rgba(0,0,0,.36);
+      z-index:2;
+    }
+
+    .showcase-item canvas{
+      display:block;
+      width:100%;
+      height:calc(100% - 32px);
+      background:transparent;
+    }
+
+    .showcase-label{
+      height:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+      font-size:.77rem;
+      color:var(--muted);
+      border-top:1px solid rgba(255,255,255,.06);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .summary{
@@ -454,10 +549,15 @@
             <button id="selectNoneBtn" class="secondary">Markierung löschen</button>
             <button id="clearBtn" class="danger">Alles löschen</button>
           </div>
+
+          <div class="view-switch">
+            <button id="editorViewBtn" class="secondary active">Batch Editing</button>
+            <button id="showcaseViewBtn" class="secondary">Showcasing</button>
+          </div>
         </div>
       </div>
 
-      <div class="section">
+      <div class="section view-panel" data-view-panel="editor">
         <h2>Globale Anpassungen</h2>
         <div class="controls">
           <div class="row">
@@ -577,6 +677,22 @@
             <button id="restoreOriginalBtn" class="secondary">Original wiederherstellen</button>
           </div>
 
+          <div class="two">
+            <div class="row">
+              <label for="enhancerPreset">KI-Enhancer</label>
+              <select id="enhancerPreset">
+                <option value="balanced-2x">Balanced 2x</option>
+                <option value="detail-4x" selected>Detail 4x</option>
+                <option value="extreme-4x">Extreme 4x</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label>&nbsp;</label>
+              <button id="enhanceBtn" class="secondary">KI-Enhancer ausfuehren</button>
+            </div>
+          </div>
+
           <div class="small">
             Direkt in der Bildvorschau: <strong>ziehen</strong> = verschieben, <strong>Mausrad</strong> = zoomen. Wenn das Quadrat-Crop aktiv ist, laesst sich das Feld direkt ziehen und an den Ecken skalieren.
           </div>
@@ -584,10 +700,14 @@
           <div class="small">
             KI-Freistellen laeuft direkt im Browser. Beim ersten Start wird einmalig ein Modell geladen.
           </div>
+
+          <div class="small">
+            Der KI-Enhancer nutzt echte Super-Resolution-Modelle im Browser. 4x, vor allem <strong>Extreme</strong>, kann je nach Geraet deutlich laenger dauern.
+          </div>
         </div>
       </div>
 
-      <div class="section">
+      <div class="section view-panel" data-view-panel="editor">
         <h2>Export</h2>
         <div class="button-row">
           <button id="downloadSelectedBtn">Markierte exportieren</button>
@@ -600,13 +720,62 @@
           oben links, oben rechts, unten links, unten rechts.
         </div>
       </div>
+
+      <div class="section view-panel hidden" data-view-panel="showcase">
+        <h2>Showcasing</h2>
+        <div class="showcase-tools">
+          <div class="row">
+            <label for="showcaseSource">Showcase füllen mit</label>
+            <select id="showcaseSource">
+              <option value="selected">Markierten Bildern</option>
+              <option value="all">Allen Bildern</option>
+            </select>
+          </div>
+
+          <div class="three">
+            <div class="row">
+              <label for="showcaseColumns">Spalten</label>
+              <input id="showcaseColumns" type="number" min="1" max="8" step="1" value="3" />
+            </div>
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseGap">Abstand</label><span id="showcaseGapVal">24 px</span></div>
+              <input id="showcaseGap" type="range" min="0" max="80" value="24" />
+            </div>
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseTile">Kachel</label><span id="showcaseTileVal">220 px</span></div>
+              <input id="showcaseTile" type="range" min="120" max="360" value="220" />
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="showcaseBg">Showcase-Hintergrund</label>
+            <select id="showcaseBg">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiß</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="showcasePopulateBtn">Raster füllen</button>
+            <button id="showcaseArrangeBtn" class="secondary">Automatisch ausrichten</button>
+            <button id="showcaseExportBtn" class="secondary">Showcase als PNG</button>
+          </div>
+
+          <div class="small">
+            Bilder im Showcase lassen sich frei verschieben. Mit <strong>R</strong> wird das Raster in der Showcase-Ansicht neu ausgerichtet.
+          </div>
+        </div>
+      </div>
     </aside>
 
     <section class="workspace">
       <div class="panel topbar">
         <div>
-          <h2>Rastervorschau</h2>
-          <p class="sub" style="margin:6px 0 0 0;">
+          <h2 id="workspaceTitle">Rastervorschau</h2>
+          <p id="workspaceSubtitle" class="sub" style="margin:6px 0 0 0;">
             Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.
           </p>
 
@@ -629,8 +798,16 @@
         <div class="status" id="statusText">Bereit</div>
       </div>
 
-      <div class="panel grid-wrap">
+      <div id="editorPane" class="panel grid-wrap workspace-pane">
         <div id="imageGrid" class="image-grid"></div>
+      </div>
+
+      <div id="showcasePane" class="panel showcase-stage-wrap workspace-pane hidden">
+        <div id="showcaseStage" class="showcase-stage">
+          <div id="showcaseStageInner" class="showcase-stage-inner">
+            <div id="showcaseEmpty" class="showcase-empty">Noch kein Showcase-Raster erstellt. Wechsle auf „Showcasing“ und fülle das Layout mit Bildern.</div>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -638,7 +815,14 @@
   <script>
     const filesInput = document.getElementById('files');
     const imageGrid = document.getElementById('imageGrid');
+    const editorPane = document.getElementById('editorPane');
+    const showcasePane = document.getElementById('showcasePane');
+    const showcaseStage = document.getElementById('showcaseStage');
+    const showcaseStageInner = document.getElementById('showcaseStageInner');
+    const showcaseEmpty = document.getElementById('showcaseEmpty');
     const statusText = document.getElementById('statusText');
+    const workspaceTitle = document.getElementById('workspaceTitle');
+    const workspaceSubtitle = document.getElementById('workspaceSubtitle');
 
     const statCount = document.getElementById('statCount');
     const statSelected = document.getElementById('statSelected');
@@ -658,7 +842,16 @@
       format: document.getElementById('format'),
       quality: document.getElementById('quality'),
       upscale: document.getElementById('upscale'),
-      bgFill: document.getElementById('bgFill')
+      bgFill: document.getElementById('bgFill'),
+      enhancerPreset: document.getElementById('enhancerPreset')
+    };
+
+    const showcaseControls = {
+      source: document.getElementById('showcaseSource'),
+      columns: document.getElementById('showcaseColumns'),
+      gap: document.getElementById('showcaseGap'),
+      tile: document.getElementById('showcaseTile'),
+      bg: document.getElementById('showcaseBg')
     };
 
     const labels = {
@@ -668,32 +861,51 @@
       warmth: document.getElementById('warmthVal'),
       sharpness: document.getElementById('sharpnessVal'),
       zoom: document.getElementById('zoomVal'),
-      padding: document.getElementById('paddingVal')
+      padding: document.getElementById('paddingVal'),
+      showcaseGap: document.getElementById('showcaseGapVal'),
+      showcaseTile: document.getElementById('showcaseTileVal')
     };
 
     const selectAllBtn = document.getElementById('selectAllBtn');
     const selectNoneBtn = document.getElementById('selectNoneBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const editorViewBtn = document.getElementById('editorViewBtn');
+    const showcaseViewBtn = document.getElementById('showcaseViewBtn');
     const applyBtn = document.getElementById('applyBtn');
     const fitBtn = document.getElementById('fitBtn');
     const resetSelectedBtn = document.getElementById('resetSelectedBtn');
     const removeBgBtn = document.getElementById('removeBgBtn');
     const squarePackBtn = document.getElementById('squarePackBtn');
     const restoreOriginalBtn = document.getElementById('restoreOriginalBtn');
+    const enhanceBtn = document.getElementById('enhanceBtn');
     const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const splitSelectedBtn = document.getElementById('splitSelectedBtn');
     const splitAllBtn = document.getElementById('splitAllBtn');
+    const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
+    const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
+    const showcaseExportBtn = document.getElementById('showcaseExportBtn');
 
     const state = {
       items: [],
+      view: 'editor',
       dragging: null,
       cropDrag: null,
       pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      showcase: {
+        items: [],
+        dragging: null,
+        boardPadding: 28
+      },
       bgRemoval: {
         removeBackground: null,
         importPromise: null,
         hasLoadedModel: false
+      },
+      aiEnhancer: {
+        corePromise: null,
+        modelPromises: {},
+        instances: {}
       }
     };
 
@@ -893,6 +1105,146 @@
       }
     }
 
+    async function replaceItemImageFromSource(item, src) {
+      const img = await loadImageElement(src);
+      assignItemImage(item, img, null);
+    }
+
+    function scaleCropToNewImage(item, previousWidth, previousHeight, nextWidth, nextHeight) {
+      if (!hasActiveCrop(item) || !previousWidth || !previousHeight) {
+        return;
+      }
+
+      const factorX = nextWidth / previousWidth;
+      const factorY = nextHeight / previousHeight;
+      item.crop = {
+        ...item.crop,
+        x: item.crop.x * factorX,
+        y: item.crop.y * factorY,
+        size: item.crop.size * Math.max(factorX, factorY)
+      };
+    }
+
+    function enhancerPresetConfig() {
+      const preset = controls.enhancerPreset.value;
+
+      if (preset === 'balanced-2x') {
+        return {
+          key: preset,
+          label: 'Balanced 2x',
+          scale: 2,
+          modelPath: null,
+          warmupPatchSize: 64
+        };
+      }
+
+      if (preset === 'extreme-4x') {
+        return {
+          key: preset,
+          label: 'Extreme 4x',
+          scale: 4,
+          modelPath: 'https://esm.sh/@upscalerjs/models/esrgan-thick/4x',
+          warmupPatchSize: 64
+        };
+      }
+
+      return {
+        key: 'detail-4x',
+        label: 'Detail 4x',
+        scale: 4,
+        modelPath: 'https://esm.sh/@upscalerjs/models/esrgan-medium/4x',
+        warmupPatchSize: 64
+      };
+    }
+
+    async function getEnhancerInstance() {
+      const preset = enhancerPresetConfig();
+      if (state.aiEnhancer.instances[preset.key]) {
+        return { upscaler: state.aiEnhancer.instances[preset.key], preset };
+      }
+
+      if (!state.aiEnhancer.corePromise) {
+        setStatus('Lade KI-Enhancer...');
+        state.aiEnhancer.corePromise = import('https://esm.sh/upscaler@1.0.0-beta.19')
+          .then(mod => mod.default || mod)
+          .catch(error => {
+            state.aiEnhancer.corePromise = null;
+            throw error;
+          });
+      }
+
+      let model = undefined;
+      if (preset.modelPath) {
+        if (!state.aiEnhancer.modelPromises[preset.key]) {
+          state.aiEnhancer.modelPromises[preset.key] = import(preset.modelPath)
+            .then(mod => mod.default || mod)
+            .catch(error => {
+              delete state.aiEnhancer.modelPromises[preset.key];
+              throw error;
+            });
+        }
+        model = await state.aiEnhancer.modelPromises[preset.key];
+      }
+
+      const Upscaler = await state.aiEnhancer.corePromise;
+      const upscaler = new Upscaler(model ? {
+        model,
+        warmupSizes: { patchSize: preset.warmupPatchSize }
+      } : {
+        warmupSizes: { patchSize: preset.warmupPatchSize }
+      });
+
+      state.aiEnhancer.instances[preset.key] = upscaler;
+      return { upscaler, preset };
+    }
+
+    async function enhanceItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      const { upscaler, preset } = await getEnhancerInstance();
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        item.processing = true;
+        setStatus(`Enhance ${index + 1}/${items.length}: ${item.name} (${preset.label})`);
+
+        try {
+          const previousWidth = item.img.width;
+          const previousHeight = item.img.height;
+          const result = await upscaler.upscale(item.img);
+          await replaceItemImageFromSource(item, result);
+          scaleCropToNewImage(item, previousWidth, previousHeight, item.img.width, item.img.height);
+          successCount += 1;
+        } catch (error) {
+          console.error('KI-Enhancer fehlgeschlagen:', error);
+          failureCount += 1;
+        } finally {
+          item.processing = false;
+          renderGrid();
+          if (state.view === 'showcase') {
+            renderShowcase();
+          }
+        }
+      }
+
+      if (successCount && !failureCount) {
+        setStatus(`${successCount} Bild${successCount === 1 ? '' : 'er'} mit ${preset.label} verbessert`);
+        return;
+      }
+
+      if (successCount && failureCount) {
+        setStatus(`Enhancer teilweise abgeschlossen: ${successCount} ok, ${failureCount} fehlgeschlagen`);
+        return;
+      }
+
+      setStatus('KI-Enhancer fehlgeschlagen');
+    }
+
     async function getBackgroundRemovalApi() {
       if (state.bgRemoval.removeBackground) {
         return state.bgRemoval.removeBackground;
@@ -942,6 +1294,8 @@
       labels.sharpness.textContent = `${controls.sharpness.value}`;
       labels.zoom.textContent = `${controls.zoom.value}%`;
       labels.padding.textContent = `${controls.padding.value}%`;
+      labels.showcaseGap.textContent = `${showcaseControls.gap.value} px`;
+      labels.showcaseTile.textContent = `${showcaseControls.tile.value} px`;
       statRatio.textContent = controls.ratio.value;
     }
 
@@ -951,6 +1305,38 @@
 
     function targetItems() {
       return controls.targetMode.value === 'all' ? state.items : selectedItems();
+    }
+
+    function showcaseSourceItems() {
+      return showcaseControls.source.value === 'all' ? state.items : selectedItems();
+    }
+
+    function viewPanels() {
+      return document.querySelectorAll('[data-view-panel]');
+    }
+
+    function setView(view) {
+      state.view = view;
+      const editorActive = view === 'editor';
+
+      editorViewBtn.classList.toggle('active', editorActive);
+      showcaseViewBtn.classList.toggle('active', !editorActive);
+
+      viewPanels().forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.viewPanel !== view);
+      });
+
+      editorPane.classList.toggle('hidden', !editorActive);
+      showcasePane.classList.toggle('hidden', editorActive);
+
+      workspaceTitle.textContent = editorActive ? 'Rastervorschau' : 'Showcase-Bühne';
+      workspaceSubtitle.textContent = editorActive
+        ? 'Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.'
+        : 'Ziehe Bilder frei im Raster, richte sie automatisch aus und exportiere die Komposition als PNG.';
+
+      if (!editorActive) {
+        renderShowcase();
+      }
     }
 
     function escapeHtml(str) {
@@ -1160,6 +1546,7 @@
               <button class="secondary" data-action="reset">Reset</button>
               <button class="secondary" data-action="remove-bg">Freistellen</button>
               <button class="secondary" data-action="square-pack">Quadrat</button>
+              <button class="secondary" data-action="enhance">Enhance</button>
               <button class="secondary" data-action="restore-original">Original</button>
               <button class="secondary" data-action="export">Export</button>
               <button class="secondary" data-action="split">4 Teile</button>
@@ -1189,6 +1576,184 @@
         }
       });
       refreshStats();
+    }
+
+    function sanitizeShowcaseItems() {
+      const validIds = new Set(state.items.map(item => item.id));
+      state.showcase.items = state.showcase.items.filter(item => validIds.has(item.sourceId));
+    }
+
+    function getShowcaseMetrics() {
+      return {
+        columns: clamp(Number(showcaseControls.columns.value) || 3, 1, 8),
+        gap: clamp(Number(showcaseControls.gap.value) || 24, 0, 80),
+        tile: clamp(Number(showcaseControls.tile.value) || 220, 120, 360),
+        boardPadding: state.showcase.boardPadding,
+        labelHeight: 32
+      };
+    }
+
+    function showcaseItemById(sourceId) {
+      return state.items.find(item => item.id === sourceId) || null;
+    }
+
+    function autoArrangeShowcase(announce = true) {
+      sanitizeShowcaseItems();
+
+      if (!state.showcase.items.length) {
+        renderShowcase();
+        if (announce) {
+          setStatus('Keine Bilder im Showcase');
+        }
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      state.showcase.items.forEach((entry, index) => {
+        const col = index % metrics.columns;
+        const row = Math.floor(index / metrics.columns);
+        entry.x = metrics.boardPadding + col * (metrics.tile + metrics.gap);
+        entry.y = metrics.boardPadding + row * (metrics.tile + metrics.gap + metrics.labelHeight);
+        entry.size = metrics.tile;
+      });
+
+      renderShowcase();
+
+      if (announce) {
+        setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} ausgerichtet`);
+      }
+    }
+
+    function populateShowcase() {
+      const sourceItems = showcaseSourceItems();
+      if (!sourceItems.length) {
+        setStatus('Keine Bilder fuer Showcase ausgewaehlt');
+        return;
+      }
+
+      state.showcase.items = sourceItems.map(item => ({
+        id: crypto.randomUUID(),
+        sourceId: item.id,
+        x: 0,
+        y: 0,
+        size: clamp(Number(showcaseControls.tile.value) || 220, 120, 360)
+      }));
+
+      autoArrangeShowcase(false);
+      setView('showcase');
+      setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} gefuellt`);
+    }
+
+    function renderShowcaseCard(entry, canvas) {
+      const item = showcaseItemById(entry.sourceId);
+      if (!item) return;
+
+      const ratio = state.pixelRatio;
+      const labelHeight = 32;
+      const width = Math.max(1, Math.round(entry.size * ratio));
+      const height = Math.max(1, Math.round((entry.size - labelHeight) * ratio));
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+      drawPreview(item, canvas);
+    }
+
+    function renderShowcase() {
+      sanitizeShowcaseItems();
+      showcaseStageInner.innerHTML = '';
+
+      if (!state.showcase.items.length) {
+        showcaseStageInner.appendChild(showcaseEmpty);
+        showcaseEmpty.style.display = 'grid';
+        showcaseStageInner.style.width = '100%';
+        showcaseStageInner.style.height = '520px';
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      let maxRight = 0;
+      let maxBottom = 0;
+
+      state.showcase.items.forEach(entry => {
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) return;
+
+        const card = document.createElement('div');
+        card.className = 'showcase-item';
+        card.dataset.showcaseId = entry.id;
+        card.style.left = `${entry.x}px`;
+        card.style.top = `${entry.y}px`;
+        card.style.width = `${entry.size}px`;
+        card.style.height = `${entry.size + metrics.labelHeight}px`;
+
+        const canvas = document.createElement('canvas');
+        const label = document.createElement('div');
+        label.className = 'showcase-label';
+        label.textContent = item.name;
+
+        card.appendChild(canvas);
+        card.appendChild(label);
+        showcaseStageInner.appendChild(card);
+
+        renderShowcaseCard(entry, canvas);
+
+        maxRight = Math.max(maxRight, entry.x + entry.size);
+        maxBottom = Math.max(maxBottom, entry.y + entry.size + metrics.labelHeight);
+      });
+
+      showcaseEmpty.style.display = 'none';
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(520, maxBottom + metrics.boardPadding)}px`;
+    }
+
+    function exportShowcasePng() {
+      sanitizeShowcaseItems();
+      if (!state.showcase.items.length) {
+        setStatus('Keine Bilder im Showcase zum Exportieren');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const bounds = state.showcase.items.reduce((acc, entry) => {
+        acc.right = Math.max(acc.right, entry.x + entry.size);
+        acc.bottom = Math.max(acc.bottom, entry.y + entry.size + metrics.labelHeight);
+        return acc;
+      }, { right: 0, bottom: 0 });
+
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(bounds.right + metrics.boardPadding));
+      out.height = Math.max(1, Math.round(bounds.bottom + metrics.boardPadding));
+
+      const ctx = out.getContext('2d');
+      if (showcaseControls.bg.value === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else if (showcaseControls.bg.value === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, out.width, out.height);
+      }
+
+      state.showcase.items.forEach(entry => {
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) return;
+
+        const tileCanvas = document.createElement('canvas');
+        tileCanvas.width = entry.size;
+        tileCanvas.height = entry.size;
+        drawPreview(item, tileCanvas);
+        ctx.drawImage(tileCanvas, entry.x, entry.y, entry.size, entry.size);
+
+        ctx.fillStyle = showcaseControls.bg.value === 'black' ? '#d9e1ea' : '#52606f';
+        ctx.font = '12px Segoe UI, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.name, entry.x + entry.size / 2, entry.y + entry.size + metrics.labelHeight / 2);
+      });
+
+      downloadCanvas(out, 'showcase-layout', 'image/png', 1);
+      setStatus(`Showcase als PNG exportiert (${state.showcase.items.length} Bilder)`);
     }
 
     async function loadFiles(fileList) {
@@ -1524,8 +2089,10 @@
     function clearAll() {
       state.items.forEach(releaseItemObjectUrl);
       state.items = [];
+      state.showcase.items = [];
       filesInput.value = '';
       renderGrid();
+      renderShowcase();
       setStatus('Alles gelöscht');
     }
 
@@ -1587,6 +2154,31 @@
       el.addEventListener('change', updateLabels);
     });
 
+    [showcaseControls.gap, showcaseControls.tile].forEach(el => {
+      el.addEventListener('input', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(false);
+        }
+      });
+      el.addEventListener('change', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(true);
+        }
+      });
+    });
+
+    showcaseControls.columns.addEventListener('change', () => {
+      if (state.showcase.items.length) {
+        autoArrangeShowcase(true);
+      }
+    });
+
+    showcaseControls.bg.addEventListener('change', () => {
+      renderShowcase();
+    });
+
     controls.padding.addEventListener('input', () => {
       syncActiveSquarePadding(targetItems(), false);
     });
@@ -1616,6 +2208,8 @@
       setStatus('Markierung gelöscht');
     });
 
+    editorViewBtn.addEventListener('click', () => setView('editor'));
+    showcaseViewBtn.addEventListener('click', () => setView('showcase'));
     clearBtn.addEventListener('click', clearAll);
     applyBtn.addEventListener('click', applyGlobalValues);
     fitBtn.addEventListener('click', fitTargets);
@@ -1628,12 +2222,23 @@
         setStatus('KI-Freistellen konnte nicht gestartet werden');
       }
     });
+    enhanceBtn.addEventListener('click', async () => {
+      try {
+        await enhanceItems(targetItems());
+      } catch (error) {
+        console.error(error);
+        setStatus('KI-Enhancer konnte nicht gestartet werden');
+      }
+    });
     squarePackBtn.addEventListener('click', () => applySquarePackToItems(targetItems()));
     restoreOriginalBtn.addEventListener('click', () => restoreOriginalForItems(targetItems()));
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
     splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
     splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
+    showcasePopulateBtn.addEventListener('click', populateShowcase);
+    showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
+    showcaseExportBtn.addEventListener('click', exportShowcasePng);
 
     imageGrid.addEventListener('change', evt => {
       if (!evt.target.matches('input[type="checkbox"]')) return;
@@ -1676,6 +2281,13 @@
 
       if (action === 'square-pack') {
         applySquarePackToItems([item]);
+      }
+
+      if (action === 'enhance') {
+        enhanceItems([item]).catch(error => {
+          console.error(error);
+          setStatus(`Enhancer fehlgeschlagen: ${item.name}`);
+        });
       }
 
       if (action === 'restore-original') {
@@ -1821,13 +2433,79 @@
       }
     }, { passive: false });
 
+    showcaseStage.addEventListener('pointerdown', evt => {
+      const card = evt.target.closest('.showcase-item');
+      if (!card) return;
+
+      const entry = state.showcase.items.find(item => item.id === card.dataset.showcaseId);
+      if (!entry) return;
+
+      evt.preventDefault();
+      state.showcase.dragging = {
+        id: entry.id,
+        startX: evt.clientX,
+        startY: evt.clientY,
+        left: entry.x,
+        top: entry.y,
+        card
+      };
+
+      card.classList.add('dragging');
+      card.setPointerCapture(evt.pointerId);
+    });
+
+    showcaseStage.addEventListener('pointermove', evt => {
+      if (!state.showcase.dragging) return;
+
+      const dragging = state.showcase.dragging;
+      const entry = state.showcase.items.find(item => item.id === dragging.id);
+      if (!entry) return;
+
+      entry.x = Math.max(0, dragging.left + (evt.clientX - dragging.startX));
+      entry.y = Math.max(0, dragging.top + (evt.clientY - dragging.startY));
+      dragging.card.style.left = `${entry.x}px`;
+      dragging.card.style.top = `${entry.y}px`;
+
+      const metrics = getShowcaseMetrics();
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.size + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(520, entry.y + entry.size + metrics.labelHeight + metrics.boardPadding)}px`;
+    });
+
+    function endShowcaseDrag(evt) {
+      if (!state.showcase.dragging) return;
+
+      try {
+        state.showcase.dragging.card.releasePointerCapture(evt.pointerId);
+      } catch (error) {}
+
+      state.showcase.dragging.card.classList.remove('dragging');
+      state.showcase.dragging = null;
+    }
+
+    showcaseStage.addEventListener('pointerup', endShowcaseDrag);
+    showcaseStage.addEventListener('pointercancel', endShowcaseDrag);
+
+    window.addEventListener('keydown', evt => {
+      if (state.view !== 'showcase') return;
+      if (evt.key.toLowerCase() !== 'r') return;
+      if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
+
+      evt.preventDefault();
+      autoArrangeShowcase(true);
+    });
+
     window.addEventListener('resize', () => {
       clearTimeout(window.__batchResizeTimer);
-      window.__batchResizeTimer = setTimeout(refreshVisibleCanvases, 80);
+      window.__batchResizeTimer = setTimeout(() => {
+        refreshVisibleCanvases();
+        renderShowcase();
+      }, 80);
     });
 
     updateLabels();
+    setView('editor');
     renderGrid();
+    renderShowcase();
   </script>
 </body>
 </html>
