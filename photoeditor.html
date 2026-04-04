@@ -303,10 +303,53 @@
 
     .crop-overlay{
       position:absolute;
-      inset:0;
       border:2px solid rgba(255,255,255,.92);
+      pointer-events:auto;
+      box-shadow:0 0 0 9999px rgba(0,0,0,.22);
+      cursor:move;
+    }
+
+    .crop-overlay.hidden{
+      display:none;
+    }
+
+    .crop-overlay::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(to right, transparent 33.333%, rgba(255,255,255,.55) 33.333%, rgba(255,255,255,.55) 34%, transparent 34%, transparent 66.666%, rgba(255,255,255,.55) 66.666%, rgba(255,255,255,.55) 67%, transparent 67%),
+        linear-gradient(to bottom, transparent 33.333%, rgba(255,255,255,.55) 33.333%, rgba(255,255,255,.55) 34%, transparent 34%, transparent 66.666%, rgba(255,255,255,.55) 66.666%, rgba(255,255,255,.55) 67%, transparent 67%);
+      opacity:.55;
       pointer-events:none;
-      box-shadow:inset 0 0 0 9999px rgba(0,0,0,.22);
+    }
+
+    .crop-handle{
+      position:absolute;
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      border:2px solid #0b1016;
+      background:#ffffff;
+      transform:translate(-50%, -50%);
+    }
+
+    .crop-handle[data-handle="nw"]{left:0;top:0;cursor:nwse-resize}
+    .crop-handle[data-handle="ne"]{left:100%;top:0;cursor:nesw-resize}
+    .crop-handle[data-handle="sw"]{left:0;top:100%;cursor:nesw-resize}
+    .crop-handle[data-handle="se"]{left:100%;top:100%;cursor:nwse-resize}
+
+    .crop-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      margin-top:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(79,140,255,.35);
+      background:rgba(79,140,255,.12);
+      color:#d8e6ff;
+      font-size:.74rem;
     }
 
     .grid-lines{
@@ -455,6 +498,11 @@
             <input id="zoom" type="range" min="20" max="400" value="100" />
           </div>
 
+          <div class="row">
+            <div class="value-row"><label for="padding">Quadrat-Padding</label><span id="paddingVal">12%</span></div>
+            <input id="padding" type="range" min="0" max="35" value="12" />
+          </div>
+
           <div class="two">
             <div class="row">
               <label for="ratio">Format / Rahmen</label>
@@ -523,8 +571,18 @@
             <button id="resetSelectedBtn" class="secondary">Reset markierte</button>
           </div>
 
+          <div class="button-row">
+            <button id="removeBgBtn" class="secondary">Hintergrund automatisch entfernen</button>
+            <button id="squarePackBtn" class="secondary">Freigestellte quadratisch packen</button>
+            <button id="restoreOriginalBtn" class="secondary">Original wiederherstellen</button>
+          </div>
+
           <div class="small">
-            Direkt in der Bildvorschau: <strong>ziehen</strong> = verschieben, <strong>Mausrad</strong> = zoomen.
+            Direkt in der Bildvorschau: <strong>ziehen</strong> = verschieben, <strong>Mausrad</strong> = zoomen. Wenn das Quadrat-Crop aktiv ist, laesst sich das Feld direkt ziehen und an den Ecken skalieren.
+          </div>
+
+          <div class="small">
+            KI-Freistellen laeuft direkt im Browser. Beim ersten Start wird einmalig ein Modell geladen.
           </div>
         </div>
       </div>
@@ -596,6 +654,7 @@
       zoom: document.getElementById('zoom'),
       ratio: document.getElementById('ratio'),
       columns: document.getElementById('columns'),
+      padding: document.getElementById('padding'),
       format: document.getElementById('format'),
       quality: document.getElementById('quality'),
       upscale: document.getElementById('upscale'),
@@ -608,7 +667,8 @@
       saturation: document.getElementById('saturationVal'),
       warmth: document.getElementById('warmthVal'),
       sharpness: document.getElementById('sharpnessVal'),
-      zoom: document.getElementById('zoomVal')
+      zoom: document.getElementById('zoomVal'),
+      padding: document.getElementById('paddingVal')
     };
 
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -617,6 +677,9 @@
     const applyBtn = document.getElementById('applyBtn');
     const fitBtn = document.getElementById('fitBtn');
     const resetSelectedBtn = document.getElementById('resetSelectedBtn');
+    const removeBgBtn = document.getElementById('removeBgBtn');
+    const squarePackBtn = document.getElementById('squarePackBtn');
+    const restoreOriginalBtn = document.getElementById('restoreOriginalBtn');
     const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const splitSelectedBtn = document.getElementById('splitSelectedBtn');
@@ -625,7 +688,13 @@
     const state = {
       items: [],
       dragging: null,
-      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+      cropDrag: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      bgRemoval: {
+        removeBackground: null,
+        importPromise: null,
+        hasLoadedModel: false
+      }
     };
 
     function setStatus(text) {
@@ -666,6 +735,205 @@
       };
     }
 
+    function defaultCrop() {
+      return {
+        enabled: false,
+        x: 0,
+        y: 0,
+        size: 0,
+        padding: Number(controls.padding?.value || 12)
+      };
+    }
+
+    function createOffscreenCanvas(width, height) {
+      if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function getAlphaBounds(img) {
+      const canvas = createOffscreenCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+
+      const { data } = ctx.getImageData(0, 0, img.width, img.height);
+      let minX = img.width;
+      let minY = img.height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const alpha = data[((y * img.width) + x) * 4 + 3];
+          if (alpha > 8) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return {
+          x: 0,
+          y: 0,
+          width: img.width,
+          height: img.height
+        };
+      }
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    function buildSquareCropFromBounds(bounds, paddingPercent) {
+      const padding = clamp((Number(paddingPercent) || 0) / 100, 0, 0.45);
+      const usableArea = Math.max(0.1, 1 - padding * 2);
+      const contentSize = Math.max(bounds.width, bounds.height);
+      const size = Math.max(24, contentSize / usableArea);
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+
+      return {
+        enabled: true,
+        x: centerX - size / 2,
+        y: centerY - size / 2,
+        size,
+        padding: Number(paddingPercent) || 0
+      };
+    }
+
+    function getFittedPlacement(img, canvas) {
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const x = (canvas.width - drawW) / 2;
+      const y = (canvas.height - drawH) / 2;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function hasActiveCrop(item) {
+      return Boolean(item.crop && item.crop.enabled && item.crop.size > 0);
+    }
+
+    function getSourceRect(item) {
+      if (hasActiveCrop(item)) {
+        return {
+          x: item.crop.x,
+          y: item.crop.y,
+          width: item.crop.size,
+          height: item.crop.size
+        };
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        width: item.img.width,
+        height: item.img.height
+      };
+    }
+
+    function getCropOverlayRect(item, canvas) {
+      if (!hasActiveCrop(item)) {
+        return null;
+      }
+
+      const placement = getFittedPlacement(item.img, canvas);
+      return {
+        left: placement.x + item.crop.x * placement.scale,
+        top: placement.y + item.crop.y * placement.scale,
+        size: item.crop.size * placement.scale,
+        scale: placement.scale
+      };
+    }
+
+    function loadImageElement(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+        img.src = src;
+      });
+    }
+
+    function releaseItemObjectUrl(item) {
+      if (item && item.objectUrl) {
+        URL.revokeObjectURL(item.objectUrl);
+        item.objectUrl = null;
+      }
+    }
+
+    function assignItemImage(item, img, objectUrl = null) {
+      if (item.objectUrl && item.objectUrl !== objectUrl) {
+        URL.revokeObjectURL(item.objectUrl);
+      }
+      item.img = img;
+      item.objectUrl = objectUrl;
+    }
+
+    async function replaceItemImageFromBlob(item, blob) {
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const img = await loadImageElement(objectUrl);
+        assignItemImage(item, img, objectUrl);
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        throw error;
+      }
+    }
+
+    async function getBackgroundRemovalApi() {
+      if (state.bgRemoval.removeBackground) {
+        return state.bgRemoval.removeBackground;
+      }
+
+      if (!state.bgRemoval.importPromise) {
+        setStatus('Lade KI-Freistellung...');
+        state.bgRemoval.importPromise = import('https://esm.sh/@imgly/background-removal@1.7.0')
+          .then(mod => mod.default || mod.removeBackground)
+          .then(removeBackground => {
+            if (typeof removeBackground !== 'function') {
+              throw new Error('Freistellungsmodul ungueltig geladen');
+            }
+            state.bgRemoval.removeBackground = removeBackground;
+            return removeBackground;
+          })
+          .catch(error => {
+            state.bgRemoval.importPromise = null;
+            throw error;
+          });
+      }
+
+      return state.bgRemoval.importPromise;
+    }
+
+    function createBackgroundRemovalConfig(itemName, index, total) {
+      return {
+        model: 'isnet_quint8',
+        output: {
+          format: 'image/png',
+          quality: 1,
+          type: 'foreground'
+        },
+        progress: (key, current, all) => {
+          if (!all) return;
+          const percent = Math.max(0, Math.min(100, Math.round((current / all) * 100)));
+          setStatus(`Lade KI-Modell ${percent}% - ${index}/${total}: ${itemName}`);
+        }
+      };
+    }
+
     function updateLabels() {
       labels.brightness.textContent = `${controls.brightness.value}%`;
       labels.contrast.textContent = `${controls.contrast.value}%`;
@@ -673,6 +941,7 @@
       labels.warmth.textContent = `${controls.warmth.value}`;
       labels.sharpness.textContent = `${controls.sharpness.value}`;
       labels.zoom.textContent = `${controls.zoom.value}%`;
+      labels.padding.textContent = `${controls.padding.value}%`;
       statRatio.textContent = controls.ratio.value;
     }
 
@@ -694,6 +963,10 @@
     }
 
     function getPlacement(item, canvas) {
+      if (hasActiveCrop(item)) {
+        return getFittedPlacement(item.img, canvas);
+      }
+
       const baseScale = Math.min(canvas.width / item.img.width, canvas.height / item.img.height);
       const scale = baseScale * (item.edit.zoom / 100);
       const drawW = item.img.width * scale;
@@ -750,6 +1023,22 @@
       }
     }
 
+    function drawItemIntoFrame(ctx, item, canvas) {
+      if (hasActiveCrop(item)) {
+        const source = getSourceRect(item);
+        const scale = Math.min(canvas.width / source.width, canvas.height / source.height);
+        const drawW = item.img.width * scale;
+        const drawH = item.img.height * scale;
+        const x = (canvas.width - source.width * scale) / 2 - source.x * scale;
+        const y = (canvas.height - source.height * scale) / 2 - source.y * scale;
+        ctx.drawImage(item.img, x, y, drawW, drawH);
+        return;
+      }
+
+      const placement = getPlacement(item, canvas);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.drawW, placement.drawH);
+    }
+
     function drawPreview(item, canvas) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -758,13 +1047,50 @@
 
       ctx.save();
       ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
-      const p = getPlacement(item, canvas);
-      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+      drawItemIntoFrame(ctx, item, canvas);
       ctx.restore();
 
       if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
         applyCanvasPostEffects(ctx, canvas, item.edit.warmth, item.edit.sharpness, false);
       }
+    }
+
+    function updateCropOverlay(item, box, canvas) {
+      const overlay = box.querySelector('[data-role="crop-overlay"]');
+      if (!overlay) return;
+
+      if (!hasActiveCrop(item)) {
+        overlay.classList.add('hidden');
+        overlay.style.left = '0px';
+        overlay.style.top = '0px';
+        overlay.style.width = '0px';
+        overlay.style.height = '0px';
+        return;
+      }
+
+      const rect = getCropOverlayRect(item, canvas);
+      if (!rect) {
+        overlay.classList.add('hidden');
+        return;
+      }
+
+      overlay.classList.remove('hidden');
+      overlay.style.left = `${rect.left}px`;
+      overlay.style.top = `${rect.top}px`;
+      overlay.style.width = `${rect.size}px`;
+      overlay.style.height = `${rect.size}px`;
+    }
+
+    function updateCardMeta(card, item) {
+      const row = card.querySelector('.mini-row');
+      if (!row) return;
+
+      if (hasActiveCrop(item)) {
+        row.innerHTML = `<span>Quadrat aktiv</span><span>Padding ${Math.round(item.crop.padding)}%</span>`;
+        return;
+      }
+
+      row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
     }
 
     function setupPreviewCanvas(item, box, canvas) {
@@ -774,6 +1100,7 @@
       canvas.width = w;
       canvas.height = h;
       drawPreview(item, canvas);
+      updateCropOverlay(item, box, canvas);
     }
 
     function refreshStats() {
@@ -797,20 +1124,27 @@
         const card = document.createElement('article');
         card.className = 'card' + (item.selected ? ' selected' : '');
         card.dataset.id = item.id;
+        const itemRatioPad = hasActiveCrop(item) ? 100 : ratio.pad;
 
         card.innerHTML = `
           <div class="card-head">
             <div style="min-width:0;flex:1;">
               <div class="name">${escapeHtml(item.name)}</div>
               <div class="meta">${item.img.width} × ${item.img.height}</div>
+              ${hasActiveCrop(item) ? `<div class="crop-badge">Quadrat-Crop · ${Math.round(item.crop.padding)}% Padding</div>` : ''}
             </div>
             <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
           </div>
 
           <div class="preview-wrap">
-            <div class="preview-box" data-role="preview-box" style="--ratioPad:${ratio.pad}%">
+            <div class="preview-box" data-role="preview-box" style="--ratioPad:${itemRatioPad}%">
               <canvas data-role="canvas"></canvas>
-              <div class="crop-overlay"></div>
+              <div class="crop-overlay hidden" data-role="crop-overlay">
+                <div class="crop-handle" data-handle="nw"></div>
+                <div class="crop-handle" data-handle="ne"></div>
+                <div class="crop-handle" data-handle="sw"></div>
+                <div class="crop-handle" data-handle="se"></div>
+              </div>
               <div class="grid-lines"></div>
             </div>
           </div>
@@ -824,6 +1158,9 @@
             <div class="mini-controls">
               <button class="secondary" data-action="fit">Einpassen</button>
               <button class="secondary" data-action="reset">Reset</button>
+              <button class="secondary" data-action="remove-bg">Freistellen</button>
+              <button class="secondary" data-action="square-pack">Quadrat</button>
+              <button class="secondary" data-action="restore-original">Original</button>
               <button class="secondary" data-action="export">Export</button>
               <button class="secondary" data-action="split">4 Teile</button>
             </div>
@@ -835,6 +1172,7 @@
         const canvas = card.querySelector('[data-role="canvas"]');
         const box = card.querySelector('[data-role="preview-box"]');
         setupPreviewCanvas(item, box, canvas);
+        updateCardMeta(card, item);
       });
 
       refreshStats();
@@ -847,6 +1185,7 @@
         const box = card.querySelector('[data-role="preview-box"]');
         if (item && canvas && box) {
           setupPreviewCanvas(item, box, canvas);
+          updateCardMeta(card, item);
         }
       });
       refreshStats();
@@ -875,7 +1214,12 @@
           id: crypto.randomUUID(),
           name: file.name,
           img,
+          originalImg: img,
           selected: true,
+          objectUrl: null,
+          backgroundRemoved: false,
+          processing: false,
+          crop: defaultCrop(),
           edit: defaultEdit()
         });
       });
@@ -936,16 +1280,135 @@
       setStatus(`${targets.length} Bild${targets.length === 1 ? '' : 'er'} zurückgesetzt`);
     }
 
-    function buildExportCanvas(item) {
-      const ratio = ratioParts(controls.ratio.value);
-      const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
+    function applySquarePackToItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
 
-      let outW = Math.max(1, Math.round(item.img.width * upscale));
+      let packed = 0;
+      const padding = Number(controls.padding.value);
+
+      items.forEach(item => {
+        const bounds = getAlphaBounds(item.img);
+        item.crop = buildSquareCropFromBounds(bounds, padding);
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+        packed += 1;
+      });
+
+      renderGrid();
+      setStatus(`${packed} Bild${packed === 1 ? '' : 'er'} quadratisch mit ${padding}% Padding gepackt`);
+    }
+
+    function syncActiveSquarePadding(items, announce = false) {
+      const padding = Number(controls.padding.value);
+      const activeItems = items.filter(item => hasActiveCrop(item));
+
+      if (!activeItems.length) {
+        return;
+      }
+
+      activeItems.forEach(item => {
+        const bounds = getAlphaBounds(item.img);
+        item.crop = buildSquareCropFromBounds(bounds, padding);
+      });
+
+      renderGrid();
+
+      if (announce) {
+        setStatus(`Padding auf ${activeItems.length} Quadrat-Bild${activeItems.length === 1 ? '' : 'er'} aktualisiert`);
+      }
+    }
+
+    function restoreOriginalForItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      let restored = 0;
+
+      items.forEach(item => {
+        const hadChanges = item.img !== item.originalImg || item.objectUrl || item.backgroundRemoved || hasActiveCrop(item);
+
+        if (item.img !== item.originalImg || item.objectUrl || item.backgroundRemoved) {
+          assignItemImage(item, item.originalImg, null);
+          item.backgroundRemoved = false;
+          item.processing = false;
+        }
+        item.crop = defaultCrop();
+        if (hadChanges) {
+          restored += 1;
+        }
+      });
+
+      renderGrid();
+      setStatus(restored ? `${restored} Bild${restored === 1 ? '' : 'er'} auf Original zurueckgesetzt` : 'Auswahl ist bereits im Originalzustand');
+    }
+
+    async function removeBackgroundFromItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      const removeBackground = await getBackgroundRemovalApi();
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        item.processing = true;
+        setStatus(`Entferne Hintergrund ${index + 1}/${items.length}: ${item.name}`);
+
+        try {
+          const blob = await removeBackground(
+            item.originalImg.src,
+            createBackgroundRemovalConfig(item.name, index + 1, items.length)
+          );
+          await replaceItemImageFromBlob(item, blob);
+          item.backgroundRemoved = true;
+          item.crop = buildSquareCropFromBounds(getAlphaBounds(item.img), Number(controls.padding.value));
+          successCount += 1;
+          state.bgRemoval.hasLoadedModel = true;
+        } catch (error) {
+          console.error('Hintergrund konnte nicht entfernt werden:', error);
+          failureCount += 1;
+        } finally {
+          item.processing = false;
+          renderGrid();
+        }
+      }
+
+      if (successCount && !failureCount) {
+        setStatus(`Hintergrund bei ${successCount} Bild${successCount === 1 ? '' : 'ern'} entfernt`);
+        return;
+      }
+
+      if (successCount && failureCount) {
+        setStatus(`Freistellen teilweise abgeschlossen: ${successCount} ok, ${failureCount} fehlgeschlagen`);
+        return;
+      }
+
+      setStatus('Automatisches Freistellen fehlgeschlagen');
+    }
+
+    function buildExportCanvas(item) {
+      const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
+      const source = getSourceRect(item);
+      const ratio = hasActiveCrop(item) ? { w: 1, h: 1 } : ratioParts(controls.ratio.value);
+
+      let outW = Math.max(1, Math.round(source.width * upscale));
       let outH = Math.round((ratio.h / ratio.w) * outW);
 
-      if (controls.ratio.value === 'free') {
+      if (!hasActiveCrop(item) && controls.ratio.value === 'free') {
         outW = Math.max(1, Math.round(item.img.width * upscale));
         outH = Math.max(1, Math.round(item.img.height * upscale));
+      } else if (hasActiveCrop(item)) {
+        outW = Math.max(1, Math.round(source.width * upscale));
+        outH = outW;
       }
 
       const out = document.createElement('canvas');
@@ -970,8 +1433,7 @@
 
       ctx.save();
       ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
-      const p = getPlacement(item, out);
-      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+        drawItemIntoFrame(ctx, item, out);
       ctx.restore();
 
       if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
@@ -1060,6 +1522,7 @@
     }
 
     function clearAll() {
+      state.items.forEach(releaseItemObjectUrl);
       state.items = [];
       filesInput.value = '';
       renderGrid();
@@ -1080,11 +1543,56 @@
       };
     }
 
+    function applyCropDrag(item, mode, startCrop, dx, dy) {
+      const minSize = 24;
+      const maxSize = Math.max(item.img.width, item.img.height) * 4;
+
+      if (mode === 'move') {
+        item.crop.x = startCrop.x + dx;
+        item.crop.y = startCrop.y + dy;
+        return;
+      }
+
+      const right = startCrop.x + startCrop.size;
+      const bottom = startCrop.y + startCrop.size;
+      let nextCrop = { ...startCrop };
+
+      if (mode === 'nw') {
+        const nextSize = clamp(Math.max(right - (startCrop.x + dx), bottom - (startCrop.y + dy)), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: right - nextSize, y: bottom - nextSize, size: nextSize };
+      }
+
+      if (mode === 'ne') {
+        const nextSize = clamp(Math.max((startCrop.x + startCrop.size + dx) - startCrop.x, bottom - (startCrop.y + dy)), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: startCrop.x, y: bottom - nextSize, size: nextSize };
+      }
+
+      if (mode === 'sw') {
+        const nextSize = clamp(Math.max(right - (startCrop.x + dx), (startCrop.y + startCrop.size + dy) - startCrop.y), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: right - nextSize, y: startCrop.y, size: nextSize };
+      }
+
+      if (mode === 'se') {
+        const nextSize = clamp(Math.max((startCrop.x + startCrop.size + dx) - startCrop.x, (startCrop.y + startCrop.size + dy) - startCrop.y), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: startCrop.x, y: startCrop.y, size: nextSize };
+      }
+
+      item.crop = nextCrop;
+    }
+
     filesInput.addEventListener('change', e => loadFiles(e.target.files));
 
-    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.zoom].forEach(el => {
+    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.zoom, controls.padding].forEach(el => {
       el.addEventListener('input', updateLabels);
       el.addEventListener('change', updateLabels);
+    });
+
+    controls.padding.addEventListener('input', () => {
+      syncActiveSquarePadding(targetItems(), false);
+    });
+
+    controls.padding.addEventListener('change', () => {
+      syncActiveSquarePadding(targetItems(), true);
     });
 
     controls.ratio.addEventListener('change', () => {
@@ -1112,6 +1620,16 @@
     applyBtn.addEventListener('click', applyGlobalValues);
     fitBtn.addEventListener('click', fitTargets);
     resetSelectedBtn.addEventListener('click', resetSelected);
+    removeBgBtn.addEventListener('click', async () => {
+      try {
+        await removeBackgroundFromItems(targetItems());
+      } catch (error) {
+        console.error(error);
+        setStatus('KI-Freistellen konnte nicht gestartet werden');
+      }
+    });
+    squarePackBtn.addEventListener('click', () => applySquarePackToItems(targetItems()));
+    restoreOriginalBtn.addEventListener('click', () => restoreOriginalForItems(targetItems()));
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
     splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
@@ -1149,6 +1667,21 @@
         setStatus(`Zurückgesetzt: ${item.name}`);
       }
 
+      if (action === 'remove-bg') {
+        removeBackgroundFromItems([item]).catch(error => {
+          console.error(error);
+          setStatus(`Freistellen fehlgeschlagen: ${item.name}`);
+        });
+      }
+
+      if (action === 'square-pack') {
+        applySquarePackToItems([item]);
+      }
+
+      if (action === 'restore-original') {
+        restoreOriginalForItems([item]);
+      }
+
       if (action === 'export') {
         exportItem(item);
         setStatus(`Exportiert: ${item.name}`);
@@ -1161,11 +1694,42 @@
     });
 
     imageGrid.addEventListener('pointerdown', evt => {
+      const overlay = evt.target.closest('[data-role="crop-overlay"]');
+      if (overlay) {
+        const item = itemFromCard(overlay);
+        if (!item || !hasActiveCrop(item)) return;
+
+        const card = overlay.closest('.card');
+        const canvas = card?.querySelector('[data-role="canvas"]');
+        if (!canvas) return;
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        const point = getCanvasPoint(evt, canvas);
+        const placement = getFittedPlacement(item.img, canvas);
+        const mode = evt.target.dataset.handle || 'move';
+
+        state.cropDrag = {
+          id: item.id,
+          mode,
+          startX: point.x,
+          startY: point.y,
+          startCrop: { ...item.crop },
+          scale: placement.scale,
+          overlay
+        };
+
+        overlay.setPointerCapture(evt.pointerId);
+        return;
+      }
+
       const canvas = evt.target.closest('canvas');
       if (!canvas) return;
 
       const item = itemFromCard(canvas);
       if (!item) return;
+      if (hasActiveCrop(item)) return;
 
       evt.preventDefault();
       const p = getCanvasPoint(evt, canvas);
@@ -1184,6 +1748,24 @@
     });
 
     imageGrid.addEventListener('pointermove', evt => {
+      if (state.cropDrag) {
+        const item = state.items.find(x => x.id === state.cropDrag.id);
+        const overlay = state.cropDrag.overlay;
+        const card = overlay?.closest('.card');
+        const canvas = card?.querySelector('[data-role="canvas"]');
+        const box = card?.querySelector('[data-role="preview-box"]');
+        if (!item || !canvas || !box || !state.cropDrag.scale) return;
+
+        const p = getCanvasPoint(evt, canvas);
+        const dx = (p.x - state.cropDrag.startX) / state.cropDrag.scale;
+        const dy = (p.y - state.cropDrag.startY) / state.cropDrag.scale;
+        applyCropDrag(item, state.cropDrag.mode, state.cropDrag.startCrop, dx, dy);
+        drawPreview(item, canvas);
+        updateCropOverlay(item, box, canvas);
+        updateCardMeta(card, item);
+        return;
+      }
+
       if (!state.dragging) return;
 
       const canvas = state.dragging.canvas;
@@ -1203,6 +1785,13 @@
     });
 
     function endDrag(evt) {
+      if (state.cropDrag) {
+        try {
+          state.cropDrag.overlay.releasePointerCapture(evt.pointerId);
+        } catch (error) {}
+        state.cropDrag = null;
+      }
+
       if (!state.dragging) return;
       try {
         state.dragging.canvas.releasePointerCapture(evt.pointerId);
@@ -1220,6 +1809,7 @@
 
       const item = itemFromCard(canvas);
       if (!item) return;
+      if (hasActiveCrop(item)) return;
 
       evt.preventDefault();
       item.edit.zoom = clamp(item.edit.zoom + (evt.deltaY < 0 ? 6 : -6), 20, 400);
