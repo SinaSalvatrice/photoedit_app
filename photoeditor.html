@@ -204,6 +204,19 @@
       white-space:nowrap;
     }
 
+    .error-banner{
+      padding:12px 16px;
+      border:1px solid rgba(255,107,107,.35);
+      background:rgba(255,107,107,.12);
+      color:#ffd7d7;
+      border-radius:16px;
+      line-height:1.45;
+    }
+
+    .error-banner.hidden{
+      display:none;
+    }
+
     .grid-wrap{
       padding:16px;
     }
@@ -447,6 +460,19 @@
       font-size:.74rem;
     }
 
+    .op-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      margin-top:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,193,92,.35);
+      background:rgba(255,193,92,.14);
+      color:#ffe4a6;
+      font-size:.74rem;
+    }
+
     .grid-lines{
       position:absolute;
       inset:0;
@@ -665,6 +691,15 @@
             </select>
           </div>
 
+          <div class="row">
+            <label for="cutoutMode">Freistellmodus</label>
+            <select id="cutoutMode">
+              <option value="fast">Schnell</option>
+              <option value="standard" selected>Standard</option>
+              <option value="strict-symbols">Streng fuer Logos & Buchstaben</option>
+            </select>
+          </div>
+
           <div class="button-row">
             <button id="applyBtn">Werte anwenden</button>
             <button id="fitBtn" class="secondary">Einpassen</button>
@@ -699,6 +734,10 @@
 
           <div class="small">
             KI-Freistellen laeuft direkt im Browser. Beim ersten Start wird einmalig ein Modell geladen.
+          </div>
+
+          <div class="small">
+            Fuer Logos, Buchstaben und harte Kanten kann der strenge Freistellmodus Restflaechen aggressiver entfernen.
           </div>
 
           <div class="small">
@@ -798,6 +837,8 @@
         <div class="status" id="statusText">Bereit</div>
       </div>
 
+      <div id="errorBanner" class="error-banner hidden"></div>
+
       <div id="editorPane" class="panel grid-wrap workspace-pane">
         <div id="imageGrid" class="image-grid"></div>
       </div>
@@ -843,6 +884,7 @@
       quality: document.getElementById('quality'),
       upscale: document.getElementById('upscale'),
       bgFill: document.getElementById('bgFill'),
+      cutoutMode: document.getElementById('cutoutMode'),
       enhancerPreset: document.getElementById('enhancerPreset')
     };
 
@@ -903,6 +945,7 @@
         hasLoadedModel: false
       },
       aiEnhancer: {
+        tfPromise: null,
         corePromise: null,
         modelPromises: {},
         instances: {}
@@ -1109,6 +1152,254 @@
       const img = await loadImageElement(src);
       assignItemImage(item, img, null);
     }
+    function normalizeProgressPercent(current, total) {
+      if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+        return 0;
+      }
+
+      if (current <= 1 && total <= 1) {
+        return Math.round(clamp(current, 0, 1) * 100);
+      }
+
+      return Math.round(clamp(current / total, 0, 1) * 100);
+    }
+
+    function setItemProcessing(item, active, label = '') {
+      item.processing = active;
+      item.processingLabel = active ? label : '';
+    }
+
+    function dilateMask(mask, width, height, radius) {
+      const out = new Uint8Array(mask.length);
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          let on = 0;
+          for (let dy = -radius; dy <= radius && !on; dy += 1) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= height) continue;
+            for (let dx = -radius; dx <= radius; dx += 1) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= width) continue;
+              if (mask[yy * width + xx]) {
+                on = 1;
+                break;
+              }
+            }
+          }
+          out[y * width + x] = on;
+        }
+      }
+      return out;
+    }
+
+    function erodeMask(mask, width, height, radius) {
+      const out = new Uint8Array(mask.length);
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          let on = 1;
+          for (let dy = -radius; dy <= radius && on; dy += 1) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= height) {
+              on = 0;
+              break;
+            }
+            for (let dx = -radius; dx <= radius; dx += 1) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= width || !mask[yy * width + xx]) {
+                on = 0;
+                break;
+              }
+            }
+          }
+          out[y * width + x] = on;
+        }
+      }
+      return out;
+    }
+
+    function fillInnerMaskHoles(mask, width, height) {
+      const visited = new Uint8Array(mask.length);
+      const stack = [];
+
+      function pushIfBackground(x, y) {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        const idx = y * width + x;
+        if (visited[idx] || mask[idx]) return;
+        visited[idx] = 1;
+        stack.push(idx);
+      }
+
+      for (let x = 0; x < width; x += 1) {
+        pushIfBackground(x, 0);
+        pushIfBackground(x, height - 1);
+      }
+      for (let y = 0; y < height; y += 1) {
+        pushIfBackground(0, y);
+        pushIfBackground(width - 1, y);
+      }
+
+      while (stack.length) {
+        const idx = stack.pop();
+        const x = idx % width;
+        const y = Math.floor(idx / width);
+        pushIfBackground(x - 1, y);
+        pushIfBackground(x + 1, y);
+        pushIfBackground(x, y - 1);
+        pushIfBackground(x, y + 1);
+      }
+
+      const out = new Uint8Array(mask);
+      for (let i = 0; i < out.length; i += 1) {
+        if (!out[i] && !visited[i]) {
+          out[i] = 1;
+        }
+      }
+      return out;
+    }
+
+    function keepLargestConnectedComponent(mask, width, height) {
+      const visited = new Uint8Array(mask.length);
+      let largestComponent = null;
+      let largestSize = 0;
+
+      for (let start = 0; start < mask.length; start += 1) {
+        if (!mask[start] || visited[start]) {
+          continue;
+        }
+
+        const stack = [start];
+        const component = [];
+        visited[start] = 1;
+
+        while (stack.length) {
+          const idx = stack.pop();
+          component.push(idx);
+
+          const x = idx % width;
+          const y = Math.floor(idx / width);
+          const neighbors = [
+            idx - 1,
+            idx + 1,
+            idx - width,
+            idx + width
+          ];
+
+          if (x === 0) neighbors[0] = -1;
+          if (x === width - 1) neighbors[1] = -1;
+          if (y === 0) neighbors[2] = -1;
+          if (y === height - 1) neighbors[3] = -1;
+
+          for (const next of neighbors) {
+            if (next < 0 || visited[next] || !mask[next]) {
+              continue;
+            }
+            visited[next] = 1;
+            stack.push(next);
+          }
+        }
+
+        if (component.length > largestSize) {
+          largestSize = component.length;
+          largestComponent = component;
+        }
+      }
+
+      if (!largestComponent) {
+        return mask;
+      }
+
+      const out = new Uint8Array(mask.length);
+      for (const idx of largestComponent) {
+        out[idx] = 1;
+      }
+      return out;
+    }
+
+    function getCutoutRefineOptions() {
+      if (controls.cutoutMode.value === 'strict-symbols') {
+        return {
+          alphaThreshold: 42,
+          closeRadius: 1,
+          finalErodeRadius: 1,
+          finalDilateRadius: 0,
+          keepLargestBeforeFill: true,
+          keepLargestAfterFill: true
+        };
+      }
+
+      return {
+        alphaThreshold: 20,
+        closeRadius: 1,
+        finalErodeRadius: 0,
+        finalDilateRadius: 0,
+        keepLargestBeforeFill: true,
+        keepLargestAfterFill: false
+      };
+    }
+
+    async function refineBackgroundRemovalBlob(blob, options = getCutoutRefineOptions()) {
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const img = await loadImageElement(objectUrl);
+        const canvas = createOffscreenCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const data = imageData.data;
+        const mask = new Uint8Array(img.width * img.height);
+
+        for (let i = 0; i < mask.length; i += 1) {
+          mask[i] = data[i * 4 + 3] > options.alphaThreshold ? 1 : 0;
+        }
+
+        let refined = erodeMask(
+          dilateMask(mask, img.width, img.height, options.closeRadius),
+          img.width,
+          img.height,
+          options.closeRadius
+        );
+
+        if (options.keepLargestBeforeFill) {
+          refined = keepLargestConnectedComponent(refined, img.width, img.height);
+        }
+
+        refined = fillInnerMaskHoles(refined, img.width, img.height);
+
+        if (options.keepLargestAfterFill) {
+          refined = keepLargestConnectedComponent(refined, img.width, img.height);
+        }
+
+        if (options.finalErodeRadius > 0) {
+          refined = erodeMask(refined, img.width, img.height, options.finalErodeRadius);
+        }
+
+        if (options.finalDilateRadius > 0) {
+          refined = dilateMask(refined, img.width, img.height, options.finalDilateRadius);
+        }
+
+        for (let i = 0; i < mask.length; i += 1) {
+          const alphaIndex = i * 4 + 3;
+          if (refined[i]) {
+            if (data[alphaIndex] < 32) {
+              data[alphaIndex] = 255;
+            }
+          } else {
+            data[alphaIndex] = 0;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        return await new Promise(resolve => {
+          canvas.convertToBlob
+            ? resolve(canvas.convertToBlob({ type: 'image/png' }))
+            : resolve(new Promise(done => canvas.toBlob(done, 'image/png')));
+        });
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
 
     function scaleCropToNewImage(item, previousWidth, previousHeight, nextWidth, nextHeight) {
       if (!hasActiveCrop(item) || !previousWidth || !previousHeight) {
@@ -1133,8 +1424,10 @@
           key: preset,
           label: 'Balanced 2x',
           scale: 2,
-          modelPath: null,
-          warmupPatchSize: 64
+          modelPath: 'https://esm.sh/@upscalerjs/default-model',
+          warmupPatchSize: 64,
+          patchSize: 96,
+          padding: 4
         };
       }
 
@@ -1143,8 +1436,10 @@
           key: preset,
           label: 'Extreme 4x',
           scale: 4,
-          modelPath: 'https://esm.sh/@upscalerjs/models/esrgan-thick/4x',
-          warmupPatchSize: 64
+          modelPath: 'https://esm.sh/@upscalerjs/esrgan-thick/4x',
+          warmupPatchSize: 64,
+          patchSize: 64,
+          padding: 4
         };
       }
 
@@ -1152,8 +1447,10 @@
         key: 'detail-4x',
         label: 'Detail 4x',
         scale: 4,
-        modelPath: 'https://esm.sh/@upscalerjs/models/esrgan-medium/4x',
-        warmupPatchSize: 64
+        modelPath: 'https://esm.sh/@upscalerjs/esrgan-medium/4x',
+        warmupPatchSize: 64,
+        patchSize: 96,
+        padding: 4
       };
     }
 
@@ -1161,6 +1458,14 @@
       const preset = enhancerPresetConfig();
       if (state.aiEnhancer.instances[preset.key]) {
         return { upscaler: state.aiEnhancer.instances[preset.key], preset };
+      }
+
+      if (!state.aiEnhancer.tfPromise) {
+        state.aiEnhancer.tfPromise = import('https://esm.sh/@tensorflow/tfjs@4.22.0')
+          .catch(error => {
+            state.aiEnhancer.tfPromise = null;
+            throw error;
+          });
       }
 
       if (!state.aiEnhancer.corePromise) {
@@ -1173,24 +1478,20 @@
           });
       }
 
-      let model = undefined;
-      if (preset.modelPath) {
-        if (!state.aiEnhancer.modelPromises[preset.key]) {
-          state.aiEnhancer.modelPromises[preset.key] = import(preset.modelPath)
-            .then(mod => mod.default || mod)
-            .catch(error => {
-              delete state.aiEnhancer.modelPromises[preset.key];
-              throw error;
-            });
-        }
-        model = await state.aiEnhancer.modelPromises[preset.key];
+      if (!state.aiEnhancer.modelPromises[preset.key]) {
+        state.aiEnhancer.modelPromises[preset.key] = import(preset.modelPath)
+          .then(mod => mod.default || mod)
+          .catch(error => {
+            delete state.aiEnhancer.modelPromises[preset.key];
+            throw error;
+          });
       }
 
+      await state.aiEnhancer.tfPromise;
+      const model = await state.aiEnhancer.modelPromises[preset.key];
       const Upscaler = await state.aiEnhancer.corePromise;
-      const upscaler = new Upscaler(model ? {
+      const upscaler = new Upscaler({
         model,
-        warmupSizes: { patchSize: preset.warmupPatchSize }
-      } : {
         warmupSizes: { patchSize: preset.warmupPatchSize }
       });
 
@@ -1210,13 +1511,18 @@
 
       for (let index = 0; index < items.length; index += 1) {
         const item = items[index];
-        item.processing = true;
+        setItemProcessing(item, true, `Enhance ${index + 1}/${items.length}`);
+        renderGrid();
         setStatus(`Enhance ${index + 1}/${items.length}: ${item.name} (${preset.label})`);
 
         try {
           const previousWidth = item.img.width;
           const previousHeight = item.img.height;
-          const result = await upscaler.upscale(item.img);
+          const result = await upscaler.upscale(item.img, {
+            output: 'src',
+            patchSize: preset.patchSize,
+            padding: preset.padding
+          });
           await replaceItemImageFromSource(item, result);
           scaleCropToNewImage(item, previousWidth, previousHeight, item.img.width, item.img.height);
           successCount += 1;
@@ -1224,7 +1530,7 @@
           console.error('KI-Enhancer fehlgeschlagen:', error);
           failureCount += 1;
         } finally {
-          item.processing = false;
+          setItemProcessing(item, false);
           renderGrid();
           if (state.view === 'showcase') {
             renderShowcase();
@@ -1279,9 +1585,9 @@
           type: 'foreground'
         },
         progress: (key, current, all) => {
-          if (!all) return;
-          const percent = Math.max(0, Math.min(100, Math.round((current / all) * 100)));
-          setStatus(`Lade KI-Modell ${percent}% - ${index}/${total}: ${itemName}`);
+          const phasePercent = normalizeProgressPercent(current, all || 1);
+          const overallPercent = Math.round((((index - 1) + (phasePercent / 100)) / Math.max(total, 1)) * 100);
+          setStatus(`Freistellen ${overallPercent}% - Bild ${index}/${total}: ${itemName}`);
         }
       };
     }
@@ -1518,6 +1824,7 @@
               <div class="name">${escapeHtml(item.name)}</div>
               <div class="meta">${item.img.width} × ${item.img.height}</div>
               ${hasActiveCrop(item) ? `<div class="crop-badge">Quadrat-Crop · ${Math.round(item.crop.padding)}% Padding</div>` : ''}
+              ${item.processing ? `<div class="op-badge">${escapeHtml(item.processingLabel || 'Bearbeite...')}</div>` : ''}
             </div>
             <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
           </div>
@@ -1784,6 +2091,7 @@
           objectUrl: null,
           backgroundRemoved: false,
           processing: false,
+          processingLabel: '',
           crop: defaultCrop(),
           edit: defaultEdit()
         });
@@ -1920,29 +2228,35 @@
       }
 
       const removeBackground = await getBackgroundRemovalApi();
+      const refineOptions = getCutoutRefineOptions();
       let successCount = 0;
       let failureCount = 0;
 
       for (let index = 0; index < items.length; index += 1) {
         const item = items[index];
-        item.processing = true;
-        setStatus(`Entferne Hintergrund ${index + 1}/${items.length}: ${item.name}`);
+        setItemProcessing(item, true, `Freistellen ${index + 1}/${items.length}`);
+        renderGrid();
+        setStatus(`Freistellen ${Math.round((index / Math.max(items.length, 1)) * 100)}% - Bild ${index + 1}/${items.length}: ${item.name}`);
 
         try {
           const blob = await removeBackground(
             item.originalImg.src,
             createBackgroundRemovalConfig(item.name, index + 1, items.length)
           );
-          await replaceItemImageFromBlob(item, blob);
+          setItemProcessing(item, true, `Maske pruefen ${index + 1}/${items.length}`);
+          renderGrid();
+          const refinedBlob = await refineBackgroundRemovalBlob(blob, refineOptions);
+          await replaceItemImageFromBlob(item, refinedBlob);
           item.backgroundRemoved = true;
           item.crop = buildSquareCropFromBounds(getAlphaBounds(item.img), Number(controls.padding.value));
           successCount += 1;
           state.bgRemoval.hasLoadedModel = true;
+          setStatus(`Freistellen ${Math.round(((index + 1) / Math.max(items.length, 1)) * 100)}% - Bild ${index + 1}/${items.length} fertig: ${item.name}`);
         } catch (error) {
           console.error('Hintergrund konnte nicht entfernt werden:', error);
           failureCount += 1;
         } finally {
-          item.processing = false;
+          setItemProcessing(item, false);
           renderGrid();
         }
       }

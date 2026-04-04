@@ -1,5 +1,9 @@
 # Notizen
 
+## allgemeines zur oberfläche
+
+- "abbrechen" und "rückgängig" bzw "wiederholen" einfügen
+
 ## Menu-Reiter "Batch Editing"
 
 - Bestehender Bereich fuer Stapelbearbeitung der Bilder.
@@ -23,10 +27,24 @@ Zweite Menuseite mit einer Showcase-Funktion:
 
 ## Issues
 
+### Upscaler & Enhancer
+
+- Enhancer kann nicht gestartet werden oder schlaegt fehl.
+- Upscaler zeigt offenbar keine sichtbare Wirkung oder tut nichts.
+- TensorFlow.js wird jetzt explizit vor dem Enhancer geladen.
+- Modellpfade wurden auf offizielle UpscalerJS-Pakete umgestellt.
+- Upscaler fordert jetzt explizit ein neues `src`-Bild als Ergebnis an.
+
 ### Hintergrundentferner
 
 - Bei vielen Bildern bleibt in der Mitte des Objekts noch eine Hintergrund-Zone stehen.
 - Die Freistellung wirkt bei manchen Motiven instabil oder unvollstaendig.
+- Nachbearbeitung der Alpha-Maske wurde eingebaut: kleine Loecher innerhalb des Objekts sollen nun besser geschlossen werden.
+- Groesste zusammenhaengende Vordergrund-Komponente wird jetzt bevorzugt behalten, damit Geisterflaechen ausserhalb des Hauptobjekts eher verschwinden.
+- Neuer Freistellmodus `Streng fuer Logos & Buchstaben` hinzugefuegt.
+- Muss noch mit problematischen Beispielbildern gegengeprueft werden.
+- Neues Beispiel: Metallbuchstabe `D` zeigt nach der Freistellung noch einen grossen rechteckigen Restbereich und verstreute graue Artefakte um das Objekt.
+- Vergleichsbild `O` wirkt deutlich sauberer. Das Problem tritt also motivabhaengig auf, besonders bei stark strukturierten, dunklen oder halbtransparent wirkenden Randbereichen.
 
 ### Bildqualitaet
 
@@ -36,10 +54,20 @@ Zweite Menuseite mit einer Showcase-Funktion:
 ### Fortschritt / UX
 
 - Die Fortschrittsanzeige bleibt offenbar auf `1` stehen oder aktualisiert sich nicht korrekt.
+- Fortschrittslogik wurde auf Gesamtfortschritt pro Batch umgestellt.
+- Bildkarten zeigen waehrend Freistellen und Enhance jetzt einen direkten Bearbeitungsstatus.
 
 ### Naechste Debug-Schritte
 
-- Fortschrittslogik fuer Hintergrundentferner pruefen.
-- Problematische Beispielbilder sammeln und vergleichen.
-- Optional Nachbearbeitung der Maske einbauen, um Loecher innerhalb des Objekts zu schliessen.
+- Auf Artefakte pruefen und beheben.
 
+- Pruefen, ob fuer schwierige Motive noch staerkere Masken-Nachbearbeitung noetig ist.
+- Gegenpruefen, wie gut der neue strenge Modus bei Buchstaben, Logos und Symbolen funktioniert.
+- Speziell Buchstaben, Logos und freistehende Symbole mit harten Kanten als eigene Testgruppe behandeln.
+- Enhancer-/Upscaler-Import und Laufzeitfehler gezielt pruefen.
+- Sichtbar machen, ob der Upscaler wirklich ein neues Ergebnisbild erzeugt.
+- Gegenpruefen, ob die neue Initialisierung die bisherigen Startfehler beseitigt.
+
+## Verbesserungen
+
+- Freistellen beschleunigen oder einen schnelleren Modus anbieten.
