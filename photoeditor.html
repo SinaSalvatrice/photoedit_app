@@ -862,6 +862,7 @@
     const showcaseStageInner = document.getElementById('showcaseStageInner');
     const showcaseEmpty = document.getElementById('showcaseEmpty');
     const statusText = document.getElementById('statusText');
+    const errorBanner = document.getElementById('errorBanner');
     const workspaceTitle = document.getElementById('workspaceTitle');
     const workspaceSubtitle = document.getElementById('workspaceSubtitle');
 
@@ -954,6 +955,16 @@
 
     function setStatus(text) {
       statusText.textContent = text;
+    }
+
+    function setUserError(message) {
+      errorBanner.textContent = message;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearUserError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
     }
 
     function clamp(v, min, max) {
