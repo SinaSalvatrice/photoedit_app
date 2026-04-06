@@ -24,7 +24,6 @@ Zweite Menuseite mit einer Showcase-Funktion:
 - Optional transparenten oder farbigen Hintergrund fuer den PNG-Export anbieten.
 - Vor dem Export eine Live-Vorschau des finalen Layouts zeigen.
 
-
 ## Issues
 
 ### Upscaler & Enhancer
@@ -34,11 +33,13 @@ Zweite Menuseite mit einer Showcase-Funktion:
 - TensorFlow.js wird jetzt explizit vor dem Enhancer geladen.
 - Modellpfade wurden auf offizielle UpscalerJS-Pakete umgestellt.
 - Upscaler fordert jetzt explizit ein neues `src`-Bild als Ergebnis an.
+- Sichtbares Fehlerbanner fuer Modell-/CDN-Ladefehler wurde eingebaut.
 
 ### Hintergrundentferner
 
 - Bei vielen Bildern bleibt in der Mitte des Objekts noch eine Hintergrund-Zone stehen.
 - Die Freistellung wirkt bei manchen Motiven instabil oder unvollstaendig.
+- Neuer Modus `Schnell` eingebaut, der die teure Masken-Nachbearbeitung ueberspringt.
 - Nachbearbeitung der Alpha-Maske wurde eingebaut: kleine Loecher innerhalb des Objekts sollen nun besser geschlossen werden.
 - Groesste zusammenhaengende Vordergrund-Komponente wird jetzt bevorzugt behalten, damit Geisterflaechen ausserhalb des Hauptobjekts eher verschwinden.
 - Neuer Freistellmodus `Streng fuer Logos & Buchstaben` hinzugefuegt.
@@ -71,3 +72,4 @@ Zweite Menuseite mit einer Showcase-Funktion:
 ## Verbesserungen
 
 - Freistellen beschleunigen oder einen schnelleren Modus anbieten.
+- Erledigt: `Schnell`-Freistellmodus hinzugefuegt.

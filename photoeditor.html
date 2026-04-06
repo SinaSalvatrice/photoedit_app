@@ -14,7 +14,7 @@
       --muted:#9da7b3;
       --accent:#4f8cff;
       --accent2:#3d73d9;
-      --danger:#ff6b6b;
+            setUserError('KI-Freistellung konnte nicht geladen werden. Bitte Internetverbindung und Modell-CDN prüfen.');
     }
 
     *{box-sizing:border-box}
@@ -39,7 +39,6 @@
     }
 
     .panel{
-      background:rgba(22,27,34,.96);
       border:1px solid var(--line);
       border-radius:20px;
       overflow:hidden;
@@ -52,6 +51,7 @@
       max-height:calc(100vh - 28px);
       overflow:auto;
     }
+        modeLabel: 'Standard',
 
     .section{
       padding:16px;
@@ -62,7 +62,7 @@
 
     h1,h2,h3,p{margin:0}
     h1{font-size:1.15rem;margin-bottom:8px}
-    h2{font-size:1rem;margin-bottom:10px}
+      const refineOptions = getCutoutRefineOptions();
 
     .sub{
       color:var(--muted);
@@ -82,7 +82,7 @@
     }
 
     .two{
-      display:grid;
+            setUserError('TensorFlow.js konnte nicht geladen werden. Bitte Internetverbindung und CDN prüfen.');
       grid-template-columns:1fr 1fr;
       gap:10px;
     }
@@ -91,7 +91,7 @@
       display:grid;
       grid-template-columns:1fr 1fr 1fr;
       gap:10px;
-    }
+            setUserError('Der KI-Enhancer konnte nicht geladen werden. Bitte CDN und Browser-Konsole prüfen.');
 
     label{
       color:var(--muted);
@@ -101,7 +101,7 @@
     input[type="file"],
     input[type="number"],
     input[type="range"],
-    select{
+            setUserError(`Enhancer-Modell ${preset.label} konnte nicht geladen werden.`);
       width:100%;
     }
 
@@ -1327,8 +1327,25 @@
     }
 
     function getCutoutRefineOptions() {
+      if (controls.cutoutMode.value === 'fast') {
+        return {
+          modeLabel: 'Schnell',
+          model: 'isnet_quint8',
+          postProcess: false,
+          alphaThreshold: 16,
+          closeRadius: 0,
+          finalErodeRadius: 0,
+          finalDilateRadius: 0,
+          keepLargestBeforeFill: false,
+          keepLargestAfterFill: false
+        };
+      }
+
       if (controls.cutoutMode.value === 'strict-symbols') {
         return {
+          modeLabel: 'Streng',
+          model: 'isnet_quint8',
+          postProcess: true,
           alphaThreshold: 42,
           closeRadius: 1,
           finalErodeRadius: 1,
@@ -1339,6 +1356,9 @@
       }
 
       return {
+        modeLabel: 'Standard',
+        model: 'isnet_quint8',
+        postProcess: true,
         alphaThreshold: 20,
         closeRadius: 1,
         finalErodeRadius: 0,
@@ -1475,6 +1495,7 @@
         state.aiEnhancer.tfPromise = import('https://esm.sh/@tensorflow/tfjs@4.22.0')
           .catch(error => {
             state.aiEnhancer.tfPromise = null;
+            setUserError('TensorFlow.js konnte nicht geladen werden. Bitte Internetverbindung und CDN pruefen.');
             throw error;
           });
       }
@@ -1485,6 +1506,7 @@
           .then(mod => mod.default || mod)
           .catch(error => {
             state.aiEnhancer.corePromise = null;
+            setUserError('Der KI-Enhancer konnte nicht geladen werden. Bitte CDN und Browser-Konsole pruefen.');
             throw error;
           });
       }
@@ -1494,6 +1516,7 @@
           .then(mod => mod.default || mod)
           .catch(error => {
             delete state.aiEnhancer.modelPromises[preset.key];
+            setUserError(`Enhancer-Modell ${preset.label} konnte nicht geladen werden.`);
             throw error;
           });
       }
@@ -1516,6 +1539,7 @@
         return;
       }
 
+      clearUserError();
       const { upscaler, preset } = await getEnhancerInstance();
       let successCount = 0;
       let failureCount = 0;
@@ -1539,6 +1563,7 @@
           successCount += 1;
         } catch (error) {
           console.error('KI-Enhancer fehlgeschlagen:', error);
+          setUserError(`KI-Enhancer fehlgeschlagen: ${error?.message || 'Unbekannter Fehler'}`);
           failureCount += 1;
         } finally {
           setItemProcessing(item, false);
@@ -1580,6 +1605,7 @@
           })
           .catch(error => {
             state.bgRemoval.importPromise = null;
+            setUserError('KI-Freistellung konnte nicht geladen werden. Bitte Internetverbindung und Modell-CDN pruefen.');
             throw error;
           });
       }
@@ -1588,8 +1614,9 @@
     }
 
     function createBackgroundRemovalConfig(itemName, index, total) {
+      const refineOptions = getCutoutRefineOptions();
       return {
-        model: 'isnet_quint8',
+        model: refineOptions.model,
         output: {
           format: 'image/png',
           quality: 1,
@@ -2238,6 +2265,7 @@
         return;
       }
 
+      clearUserError();
       const removeBackground = await getBackgroundRemovalApi();
       const refineOptions = getCutoutRefineOptions();
       let successCount = 0;
@@ -2254,10 +2282,14 @@
             item.originalImg.src,
             createBackgroundRemovalConfig(item.name, index + 1, items.length)
           );
-          setItemProcessing(item, true, `Maske pruefen ${index + 1}/${items.length}`);
-          renderGrid();
-          const refinedBlob = await refineBackgroundRemovalBlob(blob, refineOptions);
-          await replaceItemImageFromBlob(item, refinedBlob);
+          if (refineOptions.postProcess) {
+            setItemProcessing(item, true, `Maske pruefen ${index + 1}/${items.length}`);
+            renderGrid();
+            const refinedBlob = await refineBackgroundRemovalBlob(blob, refineOptions);
+            await replaceItemImageFromBlob(item, refinedBlob);
+          } else {
+            await replaceItemImageFromBlob(item, blob);
+          }
           item.backgroundRemoved = true;
           item.crop = buildSquareCropFromBounds(getAlphaBounds(item.img), Number(controls.padding.value));
           successCount += 1;
@@ -2265,6 +2297,7 @@
           setStatus(`Freistellen ${Math.round(((index + 1) / Math.max(items.length, 1)) * 100)}% - Bild ${index + 1}/${items.length} fertig: ${item.name}`);
         } catch (error) {
           console.error('Hintergrund konnte nicht entfernt werden:', error);
+          setUserError(`Freistellen fehlgeschlagen: ${error?.message || 'Unbekannter Fehler'}`);
           failureCount += 1;
         } finally {
           setItemProcessing(item, false);
