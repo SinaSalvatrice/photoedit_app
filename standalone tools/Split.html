@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Split</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --bg-strong: #e6dfd0;
+      --panel: rgba(255, 251, 244, 0.92);
+      --panel-strong: #fffaf1;
+      --line: #d0c3ae;
+      --text: #2d2418;
+      --muted: #716452;
+      --accent: #1f6f63;
+      --accent-strong: #165349;
+      --accent-soft: rgba(31, 111, 99, 0.12);
+      --danger: #a83d2f;
+      --shadow: 0 20px 45px rgba(68, 47, 20, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.7), transparent 32%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-strong) 100%);
+      font-family: "Aptos", "Segoe UI Variable", "Trebuchet MS", sans-serif;
+    }
+
+    body {
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(208, 195, 174, 0.9);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 20px;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid rgba(208, 195, 174, 0.8);
+    }
+
+    .section:last-child {
+      border-bottom: 0;
+    }
+
+    h1, h2, p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 1.45rem;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .stack,
+    .controls,
+    .workspace {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    select,
+    button {
+      width: 100%;
+      border-radius: 14px;
+      font: inherit;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    select {
+      border: 1px solid var(--line);
+      background: rgba(255, 251, 244, 0.95);
+      color: var(--text);
+      padding: 11px 12px;
+    }
+
+    input[type="file"] {
+      border-style: dashed;
+      background: rgba(31, 111, 99, 0.05);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--accent-strong);
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+      color: #fff;
+      padding: 11px 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+      box-shadow: 0 12px 26px rgba(31, 111, 99, 0.16);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    button.secondary {
+      background: var(--panel-strong);
+      color: var(--text);
+      border-color: var(--line);
+      box-shadow: none;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .button-row > * {
+      flex: 1 1 140px;
+    }
+
+    .note,
+    .status,
+    .stat {
+      border: 1px solid rgba(208, 195, 174, 0.9);
+      background: rgba(255, 251, 244, 0.75);
+      border-radius: 16px;
+    }
+
+    .note {
+      padding: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .topbar {
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .status {
+      padding: 9px 12px;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 5px rgba(31, 111, 99, 0.12);
+      flex: 0 0 auto;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 120px;
+      padding: 10px 12px;
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .grid-wrap {
+      padding: 18px;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: rgba(255, 250, 241, 0.9);
+      border: 1px solid rgba(208, 195, 174, 0.95);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 16px 30px rgba(68, 47, 20, 0.08);
+    }
+
+    .card-head {
+      padding: 14px;
+      border-bottom: 1px solid rgba(208, 195, 174, 0.7);
+    }
+
+    .name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .preview-wrap {
+      padding: 14px;
+    }
+
+    .preview {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(208, 195, 174, 0.95);
+      background:
+        linear-gradient(45deg, rgba(45, 36, 24, 0.06) 25%, transparent 25%, transparent 75%, rgba(45, 36, 24, 0.06) 75%),
+        linear-gradient(45deg, rgba(45, 36, 24, 0.06) 25%, transparent 25%, transparent 75%, rgba(45, 36, 24, 0.06) 75%),
+        #fffdf8;
+      background-size: 22px 22px;
+      background-position: 0 0, 11px 11px;
+    }
+
+    .preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .crosshair-v,
+    .crosshair-h {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 0 1px rgba(45, 36, 24, 0.12);
+    }
+
+    .crosshair-v {
+      top: 0;
+      bottom: 0;
+      left: calc(50% - 1px);
+      width: 2px;
+    }
+
+    .crosshair-h {
+      left: 0;
+      right: 0;
+      top: calc(50% - 1px);
+      height: 2px;
+    }
+
+    .quad-label {
+      position: absolute;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(45, 36, 24, 0.72);
+      color: #fff;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+
+    .quad-ul { top: 10px; left: 10px; }
+    .quad-ur { top: 10px; right: 10px; }
+    .quad-bl { bottom: 10px; left: 10px; }
+    .quad-br { bottom: 10px; right: 10px; }
+
+    .card-foot {
+      padding: 0 14px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .pill {
+      border: 1px solid rgba(208, 195, 174, 0.9);
+      background: rgba(31, 111, 99, 0.05);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .empty {
+      padding: 44px 18px;
+      border: 1px dashed var(--line);
+      border-radius: 20px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 251, 244, 0.6);
+    }
+
+    @media (max-width: 1060px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 12px;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+
+      .status {
+        white-space: normal;
+      }
+
+      .image-grid,
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Split</h1>
+        <p class="sub">Bilder laden und automatisch in vier gleich grosse Teile exportieren: upper-left, upper-right, bottom-left und bottom-right.</p>
+      </div>
+
+      <div class="section">
+        <h2>Upload</h2>
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+          <div class="button-row">
+            <button id="exportAllBtn">Alle Bilder splitten</button>
+            <button id="clearBtn" class="secondary">Alles löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="format">Exportformat</label>
+            <select id="format">
+              <option value="image/png">PNG</option>
+              <option value="image/jpeg">JPG</option>
+              <option value="image/webp">WEBP</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="quality">Qualität</label>
+            <input id="quality" type="number" min="0.1" max="1" step="0.05" value="0.92" />
+          </div>
+          <div class="note">Wenn ein Bild eine ungerade Breite oder Höhe hat, wird am rechten oder unteren Rand ein einzelnes Pixel abgeschnitten, damit alle vier Teile exakt gleich gross bleiben.</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="panel topbar">
+        <div>
+          <h2>Vorschau</h2>
+          <p class="sub" style="margin-top: 6px;">Jede Karte zeigt die vier Exportzonen. Pro Bild kannst du die vier Teilbilder direkt herunterladen.</p>
+          <div class="stats">
+            <div class="stat"><div class="k">Bilder</div><div id="statCount" class="v">0</div></div>
+            <div class="stat"><div class="k">Teile gesamt</div><div id="statParts" class="v">0</div></div>
+          </div>
+        </div>
+        <div class="status"><span class="dot"></span><span id="statusText">Bereit</span></div>
+      </div>
+
+      <div class="panel grid-wrap">
+        <div id="imageGrid" class="image-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const formatEl = document.getElementById('format');
+    const qualityEl = document.getElementById('quality');
+    const exportAllBtn = document.getElementById('exportAllBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const imageGrid = document.getElementById('imageGrid');
+    const statCount = document.getElementById('statCount');
+    const statParts = document.getElementById('statParts');
+    const statusText = document.getElementById('statusText');
+
+    const state = {
+      items: []
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function refreshStats() {
+      statCount.textContent = state.items.length;
+      statParts.textContent = state.items.length * 4;
+      exportAllBtn.disabled = !state.items.length;
+      clearBtn.disabled = !state.items.length;
+    }
+
+    function getEvenSplitRectangles(img) {
+      const evenWidth = img.width - (img.width % 2);
+      const evenHeight = img.height - (img.height % 2);
+      const halfWidth = evenWidth / 2;
+      const halfHeight = evenHeight / 2;
+
+      return {
+        upperLeft: { x: 0, y: 0, width: halfWidth, height: halfHeight, label: 'upper-left' },
+        upperRight: { x: halfWidth, y: 0, width: halfWidth, height: halfHeight, label: 'upper-right' },
+        bottomLeft: { x: 0, y: halfHeight, width: halfWidth, height: halfHeight, label: 'bottom-left' },
+        bottomRight: { x: halfWidth, y: halfHeight, width: halfWidth, height: halfHeight, label: 'bottom-right' }
+      };
+    }
+
+    function renderGrid() {
+      if (!state.items.length) {
+        imageGrid.innerHTML = '<div class="empty">Noch keine Bilder geladen. Lade ein oder mehrere Bilder hoch und exportiere danach die vier gleich grossen Teile.</div>';
+        refreshStats();
+        return;
+      }
+
+      imageGrid.innerHTML = state.items.map(item => {
+        const parts = getEvenSplitRectangles(item.img);
+        return `
+          <article class="card" data-id="${item.id}">
+            <div class="card-head">
+              <div class="name">${escapeHtml(item.name)}</div>
+              <div class="meta">Original: ${item.img.width} × ${item.img.height} · Export pro Teil: ${parts.upperLeft.width} × ${parts.upperLeft.height}</div>
+            </div>
+            <div class="preview-wrap">
+              <div class="preview">
+                <img src="${item.src}" alt="${escapeHtml(item.name)}" />
+                <div class="crosshair-v"></div>
+                <div class="crosshair-h"></div>
+                <div class="quad-label quad-ul">upper-left</div>
+                <div class="quad-label quad-ur">upper-right</div>
+                <div class="quad-label quad-bl">bottom-left</div>
+                <div class="quad-label quad-br">bottom-right</div>
+              </div>
+            </div>
+            <div class="card-foot">
+              <div class="mini-grid">
+                <div class="pill">upper-left: ${parts.upperLeft.width} × ${parts.upperLeft.height}</div>
+                <div class="pill">upper-right: ${parts.upperRight.width} × ${parts.upperRight.height}</div>
+                <div class="pill">bottom-left: ${parts.bottomLeft.width} × ${parts.bottomLeft.height}</div>
+                <div class="pill">bottom-right: ${parts.bottomRight.width} × ${parts.bottomRight.height}</div>
+              </div>
+              <div class="button-row">
+                <button data-action="export-one">Dieses Bild exportieren</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      refreshStats();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const loaded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve({ file, img, src: reader.result });
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })));
+
+      loaded.forEach(({ file, img, src }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img,
+          src
+        });
+      });
+
+      renderGrid();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function exportCanvasRegion(item, part) {
+      const mime = formatEl.value;
+      const quality = clamp(Number(qualityEl.value) || 0.92, 0.1, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = part.width;
+      canvas.height = part.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(
+        item.img,
+        part.x,
+        part.y,
+        part.width,
+        part.height,
+        0,
+        0,
+        part.width,
+        part.height
+      );
+
+      const link = document.createElement('a');
+      const base = item.name.replace(/\.[^.]+$/, '');
+      link.href = canvas.toDataURL(mime, quality);
+      link.download = `${base}-${part.label}.${fileExtFromMime(mime)}`;
+      link.click();
+    }
+
+    async function exportImageParts(item) {
+      const parts = Object.values(getEvenSplitRectangles(item.img));
+      for (const part of parts) {
+        exportCanvasRegion(item, part);
+        await new Promise(resolve => setTimeout(resolve, 180));
+      }
+    }
+
+    async function exportAllImages() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder geladen');
+        return;
+      }
+
+      setStatus(`Exportiere ${state.items.length * 4} Teile…`);
+      for (const item of state.items) {
+        await exportImageParts(item);
+      }
+      setStatus(`${state.items.length * 4} Teile exportiert`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      filesInput.value = '';
+      renderGrid();
+      setStatus('Alles gelöscht');
+    }
+
+    function itemFromEventTarget(target) {
+      const card = target.closest('.card');
+      if (!card) return null;
+      return state.items.find(item => item.id === card.dataset.id) || null;
+    }
+
+    filesInput.addEventListener('change', event => loadFiles(event.target.files));
+    exportAllBtn.addEventListener('click', exportAllImages);
+    clearBtn.addEventListener('click', clearAll);
+
+    imageGrid.addEventListener('click', async event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+
+      const item = itemFromEventTarget(button);
+      if (!item) return;
+
+      if (button.dataset.action === 'export-one') {
+        setStatus(`Exportiere 4 Teile aus ${item.name}…`);
+        await exportImageParts(item);
+        setStatus(`4 Teile exportiert: ${item.name}`);
+      }
+    });
+
+    refreshStats();
+    renderGrid();
+  </script>
+</body>
+</html>

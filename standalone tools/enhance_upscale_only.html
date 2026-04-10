@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enhance + Upscale</title>
+  <style>
+    :root {
+      --bg: #0b1016;
+      --panel: #141b24;
+      --panel-2: #1d2632;
+      --line: #314052;
+      --text: #eef3f8;
+      --muted: #aab5c4;
+      --accent: #78a6ff;
+      --accent-2: #5f88da;
+      --danger: #ff8e8e;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: linear-gradient(180deg, #091018 0%, #0e141c 100%);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: rgba(20, 27, 36, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+      overflow: hidden;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 1.18rem; margin-bottom: 8px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+
+    .sub {
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.93rem;
+      margin-bottom: 14px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row { display: grid; gap: 7px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    label {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    input[type="file"], input[type="number"], input[type="range"], select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed #47566b;
+      color: var(--muted);
+    }
+
+    input[type="number"], select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #39475a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] { accent-color: var(--accent); }
+
+    button {
+      appearance: none;
+      border: 1px solid #3d5e9c;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.95rem;
+      font-weight: 650;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(87, 127, 218, 0.22);
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      border-color: #3d4b5f;
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    button.danger {
+      background: rgba(255, 142, 142, 0.12);
+      border-color: rgba(255, 142, 142, 0.35);
+      color: #ffd4d4;
+      box-shadow: none;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .thumbs {
+      display: grid;
+      gap: 10px;
+      max-height: 300px;
+      overflow: auto;
+    }
+
+    .thumb {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #324053;
+      border-radius: 16px;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .thumb.active {
+      border-color: var(--accent);
+      background: rgba(120, 166, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(120, 166, 255, 0.22);
+    }
+
+    .thumb img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .thumb-title {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .thumb-meta {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: calc(100vh - 32px);
+    }
+
+    .workspace-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .status {
+      border: 1px solid #354458;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .workspace-body {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .viewer {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .viewer h2 {
+      font-size: 0.96rem;
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    .canvas-wrap {
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%),
+        #0a0f15;
+      background-size: 24px 24px;
+      background-position: 0 0, 12px 12px;
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+
+    .workspace-foot {
+      padding: 0 18px 18px 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .hint {
+      border: 1px solid rgba(120, 166, 255, 0.18);
+      background: rgba(120, 166, 255, 0.08);
+      color: #d8e6ff;
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+
+    .empty {
+      border: 1px dashed #3a475a;
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .small { color: var(--muted); font-size: 0.82rem; line-height: 1.4; }
+
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; max-height: none; }
+      .workspace { min-height: auto; }
+      .workspace-body { grid-template-columns: 1fr; }
+      .canvas-wrap { min-height: 320px; }
+    }
+
+    @media (max-width: 680px) {
+      body { padding: 10px; }
+      .two { grid-template-columns: 1fr; }
+      .button-row { display: grid; grid-template-columns: 1fr 1fr; }
+      .button-row button { width: 100%; }
+      .workspace-head { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Enhance + Upscale</h1>
+        <p class="sub">Nur Bilder verbessern, Vorschau vergleichen und größer exportieren. Kein Crop, kein Referenz-Match, kein sonstiger Zirkus.</p>
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple>
+          </div>
+          <div class="button-row">
+            <button id="resetBtn" class="secondary">Werte zurücksetzen</button>
+            <button id="clearBtn" class="danger">Alles löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Enhance</h2>
+        <div class="controls">
+          <div class="row">
+            <div class="value-row"><label for="brightness">Helligkeit</label><span id="brightnessVal">100%</span></div>
+            <input id="brightness" type="range" min="0" max="200" value="100">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="contrast">Kontrast</label><span id="contrastVal">100%</span></div>
+            <input id="contrast" type="range" min="0" max="200" value="100">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="saturation">Sättigung</label><span id="saturationVal">100%</span></div>
+            <input id="saturation" type="range" min="0" max="200" value="100">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="warmth">Wärme</label><span id="warmthVal">0</span></div>
+            <input id="warmth" type="range" min="-100" max="100" value="0">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="sharpness">Schärfe</label><span id="sharpnessVal">0</span></div>
+            <input id="sharpness" type="range" min="0" max="100" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Upscale + Export</h2>
+        <div class="controls">
+          <div class="two">
+            <div class="row">
+              <label for="upscale">Upscale</label>
+              <select id="upscale">
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+            <div class="row">
+              <label for="format">Exportformat</label>
+              <select id="format">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPG</option>
+                <option value="image/webp">WEBP</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <label for="quality">JPG/WEBP Qualität</label>
+            <input id="quality" type="number" min="0.1" max="1" step="0.05" value="0.92">
+          </div>
+          <div class="button-row">
+            <button id="exportCurrentBtn">Aktuelles Bild exportieren</button>
+            <button id="exportAllBtn" class="secondary">Alle exportieren</button>
+          </div>
+          <div class="small">Das Upscaling ist sauberes Vergrößern mit hoher Interpolation. Kein echtes KI-Detailwunder, aber brauchbar.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Bilder</h2>
+        <div id="thumbs" class="thumbs">
+          <div class="empty">Noch keine Bilder geladen.</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="panel workspace">
+      <div class="workspace-head">
+        <div>
+          <h2>Vorher / Nachher</h2>
+          <p class="sub" style="margin:6px 0 0 0;">Links Original, rechts deine aktuelle Enhance-Version.</p>
+        </div>
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div class="workspace-body">
+        <section class="viewer">
+          <h2>Original</h2>
+          <div class="canvas-wrap"><canvas id="beforeCanvas" width="900" height="900"></canvas></div>
+        </section>
+        <section class="viewer">
+          <h2>Enhanced</h2>
+          <div class="canvas-wrap"><canvas id="afterCanvas" width="900" height="900"></canvas></div>
+        </section>
+      </div>
+
+      <div class="workspace-foot">
+        <div class="hint">Für Buchstabensets oder ähnliche Serien ist diese Version bewusst schlicht: schnell ein Bild anwählen, Werte einstellen, Vorschau prüfen, exportieren.</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const thumbsEl = document.getElementById('thumbs');
+    const beforeCanvas = document.getElementById('beforeCanvas');
+    const afterCanvas = document.getElementById('afterCanvas');
+    const beforeCtx = beforeCanvas.getContext('2d');
+    const afterCtx = afterCanvas.getContext('2d');
+    const statusText = document.getElementById('statusText');
+
+    const controls = {
+      brightness: document.getElementById('brightness'),
+      contrast: document.getElementById('contrast'),
+      saturation: document.getElementById('saturation'),
+      warmth: document.getElementById('warmth'),
+      sharpness: document.getElementById('sharpness'),
+      upscale: document.getElementById('upscale'),
+      format: document.getElementById('format'),
+      quality: document.getElementById('quality')
+    };
+
+    const labels = {
+      brightness: document.getElementById('brightnessVal'),
+      contrast: document.getElementById('contrastVal'),
+      saturation: document.getElementById('saturationVal'),
+      warmth: document.getElementById('warmthVal'),
+      sharpness: document.getElementById('sharpnessVal')
+    };
+
+    const resetBtn = document.getElementById('resetBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportCurrentBtn = document.getElementById('exportCurrentBtn');
+    const exportAllBtn = document.getElementById('exportAllBtn');
+
+    const state = {
+      items: [],
+      activeId: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function defaultEdit() {
+      return {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        warmth: 0,
+        sharpness: 0
+      };
+    }
+
+    function getActive() {
+      return state.items.find(item => item.id === state.activeId) || null;
+    }
+
+    function syncControlsFromActive() {
+      const item = getActive();
+      const disabled = !item;
+      Object.values(controls).forEach(el => {
+        if (el !== controls.upscale && el !== controls.format && el !== controls.quality) {
+          el.disabled = disabled;
+        }
+      });
+      resetBtn.disabled = disabled;
+      exportCurrentBtn.disabled = disabled;
+
+      if (!item) {
+        updateLabels();
+        drawEmpty();
+        return;
+      }
+
+      controls.brightness.value = item.edit.brightness;
+      controls.contrast.value = item.edit.contrast;
+      controls.saturation.value = item.edit.saturation;
+      controls.warmth.value = item.edit.warmth;
+      controls.sharpness.value = item.edit.sharpness;
+      updateLabels();
+    }
+
+    function updateLabels() {
+      labels.brightness.textContent = `${controls.brightness.value}%`;
+      labels.contrast.textContent = `${controls.contrast.value}%`;
+      labels.saturation.textContent = `${controls.saturation.value}%`;
+      labels.warmth.textContent = `${controls.warmth.value}`;
+      labels.sharpness.textContent = `${controls.sharpness.value}`;
+    }
+
+    function escapeHtml(str) {
+      return str.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+    }
+
+    function getDrawRect(img, canvas) {
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      const dx = (canvas.width - dw) / 2;
+      const dy = (canvas.height - dh) / 2;
+      return { dx, dy, dw, dh };
+    }
+
+    function fillCanvasBg(ctx, canvas) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0a0f15';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function applyCanvasPostEffects(ctx, canvas, warmth, sharpness, fullPrecision) {
+      if (warmth === 0 && sharpness === 0) return;
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      if (warmth !== 0) {
+        const amount = warmth / 100;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = clamp(data[i] + 28 * amount, 0, 255);
+          data[i + 1] = clamp(data[i + 1] + 6 * amount, 0, 255);
+          data[i + 2] = clamp(data[i + 2] - 28 * amount, 0, 255);
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      if (sharpness > 0) {
+        const strength = (sharpness / 100) * (fullPrecision ? 1.2 : 0.8);
+        const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const out = ctx.createImageData(src.width, src.height);
+        const s = src.data;
+        const d = out.data;
+        const w = src.width;
+        const h = src.height;
+        const centerWeight = 1 + strength * 4;
+        const sideWeight = -strength;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            for (let c = 0; c < 3; c++) {
+              const center = s[idx + c] * centerWeight;
+              const left = s[((y * w + Math.max(0, x - 1)) * 4) + c] * sideWeight;
+              const right = s[((y * w + Math.min(w - 1, x + 1)) * 4) + c] * sideWeight;
+              const up = s[((Math.max(0, y - 1) * w + x) * 4) + c] * sideWeight;
+              const down = s[((Math.min(h - 1, y + 1) * w + x) * 4) + c] * sideWeight;
+              d[idx + c] = clamp(center + left + right + up + down, 0, 255);
+            }
+            d[idx + 3] = s[idx + 3];
+          }
+        }
+        ctx.putImageData(out, 0, 0);
+      }
+    }
+
+    function drawOriginal(item) {
+      fillCanvasBg(beforeCtx, beforeCanvas);
+      if (!item) return;
+      const { dx, dy, dw, dh } = getDrawRect(item.img, beforeCanvas);
+      beforeCtx.drawImage(item.img, dx, dy, dw, dh);
+    }
+
+    function drawEnhanced(item) {
+      fillCanvasBg(afterCtx, afterCanvas);
+      if (!item) return;
+      const { dx, dy, dw, dh } = getDrawRect(item.img, afterCanvas);
+      afterCtx.save();
+      afterCtx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      afterCtx.drawImage(item.img, dx, dy, dw, dh);
+      afterCtx.restore();
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(afterCtx, afterCanvas, item.edit.warmth, item.edit.sharpness, false);
+      }
+    }
+
+    function drawAll() {
+      const item = getActive();
+      drawOriginal(item);
+      drawEnhanced(item);
+    }
+
+    function drawEmpty() {
+      [beforeCtx, afterCtx].forEach((ctx, idx) => {
+        const canvas = idx === 0 ? beforeCanvas : afterCanvas;
+        fillCanvasBg(ctx, canvas);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '600 28px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(idx === 0 ? 'Original' : 'Enhanced', canvas.width / 2, canvas.height / 2 - 8);
+        ctx.font = '16px Inter, system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.42)';
+        ctx.fillText('Lade ein Bild, dann erscheint hier die Vorschau.', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.restore();
+      });
+    }
+
+    function renderThumbs() {
+      if (!state.items.length) {
+        thumbsEl.innerHTML = '<div class="empty">Noch keine Bilder geladen.</div>';
+        return;
+      }
+
+      thumbsEl.innerHTML = '';
+      state.items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'thumb' + (item.id === state.activeId ? ' active' : '');
+        el.dataset.id = item.id;
+        el.innerHTML = `
+          <img src="${item.url}" alt="${escapeHtml(item.name)}">
+          <div>
+            <div class="thumb-title">${escapeHtml(item.name)}</div>
+            <div class="thumb-meta">${item.img.width} × ${item.img.height}</div>
+          </div>
+        `;
+        thumbsEl.appendChild(el);
+      });
+    }
+
+    function setActive(id) {
+      state.activeId = id;
+      renderThumbs();
+      syncControlsFromActive();
+      drawAll();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const loaded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve({ file, url: reader.result, img });
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })));
+
+      loaded.forEach(({ file, url, img }) => {
+        const id = crypto.randomUUID();
+        state.items.push({ id, name: file.name, url, img, edit: defaultEdit() });
+        if (!state.activeId) state.activeId = id;
+      });
+
+      renderThumbs();
+      syncControlsFromActive();
+      drawAll();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function applyControlsToActive() {
+      const item = getActive();
+      if (!item) return;
+      item.edit.brightness = Number(controls.brightness.value);
+      item.edit.contrast = Number(controls.contrast.value);
+      item.edit.saturation = Number(controls.saturation.value);
+      item.edit.warmth = Number(controls.warmth.value);
+      item.edit.sharpness = Number(controls.sharpness.value);
+      updateLabels();
+      drawAll();
+    }
+
+    function resetActive() {
+      const item = getActive();
+      if (!item) return;
+      item.edit = defaultEdit();
+      syncControlsFromActive();
+      drawAll();
+      setStatus(`Zurückgesetzt: ${item.name}`);
+    }
+
+    function clearAllImages() {
+      state.items = [];
+      state.activeId = null;
+      filesInput.value = '';
+      renderThumbs();
+      syncControlsFromActive();
+      drawEmpty();
+      setStatus('Alles gelöscht');
+    }
+
+    function buildExportCanvas(item) {
+      const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
+      const outW = Math.max(1, Math.round(item.img.width * upscale));
+      const outH = Math.max(1, Math.round(item.img.height * upscale));
+      const out = document.createElement('canvas');
+      out.width = outW;
+      out.height = outH;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      ctx.drawImage(item.img, 0, 0, outW, outH);
+      ctx.restore();
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
+      }
+
+      return { canvas: out, upscale };
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function exportItem(item) {
+      const { canvas, upscale } = buildExportCanvas(item);
+      const mime = controls.format.value;
+      const quality = clamp(Number(controls.quality.value) || 0.92, 0.1, 1);
+      const base = item.name.replace(/\.[^.]+$/, '');
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL(mime, quality);
+      a.download = `${base}-enhanced-${upscale}x.${fileExtFromMime(mime)}`;
+      a.click();
+    }
+
+    async function exportAll() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder geladen');
+        return;
+      }
+      setStatus(`Exportiere ${state.items.length} Bilder…`);
+      for (const item of state.items) {
+        exportItem(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+      setStatus(`${state.items.length} Bilder exportiert`);
+    }
+
+    filesInput.addEventListener('change', e => loadFiles(e.target.files));
+    thumbsEl.addEventListener('click', e => {
+      const thumb = e.target.closest('.thumb');
+      if (!thumb) return;
+      setActive(thumb.dataset.id);
+    });
+
+    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness].forEach(el => {
+      el.addEventListener('input', applyControlsToActive);
+      el.addEventListener('change', applyControlsToActive);
+    });
+
+    resetBtn.addEventListener('click', resetActive);
+    clearBtn.addEventListener('click', clearAllImages);
+    exportCurrentBtn.addEventListener('click', () => {
+      const item = getActive();
+      if (!item) {
+        setStatus('Kein Bild aktiv');
+        return;
+      }
+      exportItem(item);
+      setStatus(`Exportiert: ${item.name}`);
+    });
+    exportAllBtn.addEventListener('click', exportAll);
+
+    drawEmpty();
+    updateLabels();
+    syncControlsFromActive();
+  </script>
+</body>
+</html>
