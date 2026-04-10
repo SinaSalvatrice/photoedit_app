@@ -218,6 +218,20 @@
       white-space: nowrap;
     }
 
+    .error-banner {
+      margin: 0 18px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 142, 142, 0.35);
+      background: rgba(255, 142, 142, 0.12);
+      color: #ffd7d7;
+      border-radius: 16px;
+      line-height: 1.45;
+    }
+
+    .error-banner.hidden {
+      display: none;
+    }
+
     .workspace-body {
       padding: 18px;
       display: grid;
@@ -346,6 +360,28 @@
       </div>
 
       <div class="section">
+        <h2>AI Enhance</h2>
+        <div class="controls">
+          <div class="row">
+            <label for="enhancerPreset">Preset</label>
+            <select id="enhancerPreset">
+              <option value="balanced-2x">Balanced 2x</option>
+              <option value="detail-4x" selected>Detail 4x</option>
+              <option value="extreme-4x">Extreme 4x</option>
+            </select>
+          </div>
+          <div class="button-row">
+            <button id="enhanceActiveBtn" class="secondary">Aktives Bild AI-enhancen</button>
+            <button id="enhanceAllBtn" class="secondary">Alle AI-enhancen</button>
+          </div>
+          <div class="button-row">
+            <button id="restoreAiBtn" class="secondary">AI-Ergebnis entfernen</button>
+          </div>
+          <div class="small">Lädt beim ersten Start ein Browser-Modell nach. Die AI-Version wird als neue Arbeitsquelle genutzt, danach greifen die Regler weiterhin oben drauf.</div>
+        </div>
+      </div>
+
+      <div class="section">
         <h2>Upscale + Export</h2>
         <div class="controls">
           <div class="two">
@@ -374,7 +410,7 @@
             <button id="exportCurrentBtn">Aktuelles Bild exportieren</button>
             <button id="exportAllBtn" class="secondary">Alle exportieren</button>
           </div>
-          <div class="small">Das Upscaling ist sauberes Vergrößern mit hoher Interpolation. Kein echtes KI-Detailwunder, aber brauchbar.</div>
+          <div class="small">Wenn ein AI-Ergebnis vorhanden ist, basiert der Export darauf. Das Export-Upscale kommt zusätzlich oben drauf.</div>
         </div>
       </div>
 
@@ -394,6 +430,8 @@
         </div>
         <div id="statusText" class="status">Bereit</div>
       </div>
+
+      <div id="errorBanner" class="error-banner hidden"></div>
 
       <div class="workspace-body">
         <section class="viewer">
@@ -420,6 +458,7 @@
     const beforeCtx = beforeCanvas.getContext('2d');
     const afterCtx = afterCanvas.getContext('2d');
     const statusText = document.getElementById('statusText');
+    const errorBanner = document.getElementById('errorBanner');
 
     const controls = {
       brightness: document.getElementById('brightness'),
@@ -427,6 +466,7 @@
       saturation: document.getElementById('saturation'),
       warmth: document.getElementById('warmth'),
       sharpness: document.getElementById('sharpness'),
+      enhancerPreset: document.getElementById('enhancerPreset'),
       upscale: document.getElementById('upscale'),
       format: document.getElementById('format'),
       quality: document.getElementById('quality')
@@ -442,17 +482,37 @@
 
     const resetBtn = document.getElementById('resetBtn');
     const clearBtn = document.getElementById('clearBtn');
+    const enhanceActiveBtn = document.getElementById('enhanceActiveBtn');
+    const enhanceAllBtn = document.getElementById('enhanceAllBtn');
+    const restoreAiBtn = document.getElementById('restoreAiBtn');
     const exportCurrentBtn = document.getElementById('exportCurrentBtn');
     const exportAllBtn = document.getElementById('exportAllBtn');
 
     const state = {
       items: [],
       activeId: null,
-      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      aiEnhancer: {
+        busy: false,
+        tfPromise: null,
+        corePromise: null,
+        modelPromises: {},
+        instances: {}
+      }
     };
 
     function setStatus(text) {
       statusText.textContent = text;
+    }
+
+    function setUserError(message) {
+      errorBanner.textContent = message;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearUserError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
     }
 
     function clamp(v, min, max) {
@@ -473,20 +533,38 @@
       return state.items.find(item => item.id === state.activeId) || null;
     }
 
+    function getWorkingSource(item) {
+      return item?.ai?.img || item?.img || null;
+    }
+
+    function syncActionButtons() {
+      const hasActive = Boolean(getActive());
+      const hasItems = state.items.length > 0;
+      const disabled = state.aiEnhancer.busy;
+      enhanceActiveBtn.disabled = !hasActive || disabled;
+      enhanceAllBtn.disabled = !hasItems || disabled;
+      restoreAiBtn.disabled = !hasActive || !getActive()?.ai || disabled;
+      resetBtn.disabled = !hasActive || disabled;
+      exportCurrentBtn.disabled = !hasActive || disabled;
+      exportAllBtn.disabled = !hasItems || disabled;
+      clearBtn.disabled = disabled;
+      filesInput.disabled = disabled;
+    }
+
     function syncControlsFromActive() {
       const item = getActive();
-      const disabled = !item;
+      const disabled = !item || state.aiEnhancer.busy;
       Object.values(controls).forEach(el => {
         if (el !== controls.upscale && el !== controls.format && el !== controls.quality) {
           el.disabled = disabled;
         }
       });
-      resetBtn.disabled = disabled;
-      exportCurrentBtn.disabled = disabled;
+      restoreAiBtn.disabled = disabled || !item?.ai || state.aiEnhancer.busy;
 
       if (!item) {
         updateLabels();
         drawEmpty();
+        syncActionButtons();
         return;
       }
 
@@ -496,6 +574,7 @@
       controls.warmth.value = item.edit.warmth;
       controls.sharpness.value = item.edit.sharpness;
       updateLabels();
+      syncActionButtons();
     }
 
     function updateLabels() {
@@ -580,10 +659,12 @@
     function drawEnhanced(item) {
       fillCanvasBg(afterCtx, afterCanvas);
       if (!item) return;
-      const { dx, dy, dw, dh } = getDrawRect(item.img, afterCanvas);
+      const source = getWorkingSource(item);
+      if (!source) return;
+      const { dx, dy, dw, dh } = getDrawRect(source, afterCanvas);
       afterCtx.save();
       afterCtx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
-      afterCtx.drawImage(item.img, dx, dy, dw, dh);
+      afterCtx.drawImage(source, dx, dy, dw, dh);
       afterCtx.restore();
       if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
         applyCanvasPostEffects(afterCtx, afterCanvas, item.edit.warmth, item.edit.sharpness, false);
@@ -627,7 +708,7 @@
           <img src="${item.url}" alt="${escapeHtml(item.name)}">
           <div>
             <div class="thumb-title">${escapeHtml(item.name)}</div>
-            <div class="thumb-meta">${item.img.width} × ${item.img.height}</div>
+            <div class="thumb-meta">${item.img.width} × ${item.img.height}${item.ai ? ` • AI ${item.ai.img.width} × ${item.ai.img.height}` : ''}</div>
           </div>
         `;
         thumbsEl.appendChild(el);
@@ -644,6 +725,7 @@
     async function loadFiles(fileList) {
       const files = Array.from(fileList || []);
       if (!files.length) return;
+      clearUserError();
 
       const loaded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -659,13 +741,14 @@
 
       loaded.forEach(({ file, url, img }) => {
         const id = crypto.randomUUID();
-        state.items.push({ id, name: file.name, url, img, edit: defaultEdit() });
+        state.items.push({ id, name: file.name, url, img, edit: defaultEdit(), ai: null });
         if (!state.activeId) state.activeId = id;
       });
 
       renderThumbs();
       syncControlsFromActive();
       drawAll();
+      syncActionButtons();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -694,16 +777,205 @@
       state.items = [];
       state.activeId = null;
       filesInput.value = '';
+      clearUserError();
       renderThumbs();
       syncControlsFromActive();
       drawEmpty();
+      syncActionButtons();
       setStatus('Alles gelöscht');
+    }
+
+    function enhancerPresetConfig() {
+      const preset = controls.enhancerPreset.value;
+
+      if (preset === 'balanced-2x') {
+        return {
+          key: preset,
+          label: 'Balanced 2x',
+          scale: 2,
+          modelPath: 'https://esm.sh/@upscalerjs/default-model',
+          warmupPatchSize: 64,
+          patchSize: 96,
+          padding: 4
+        };
+      }
+
+      if (preset === 'extreme-4x') {
+        return {
+          key: preset,
+          label: 'Extreme 4x',
+          scale: 4,
+          modelPath: 'https://esm.sh/@upscalerjs/esrgan-thick/4x',
+          warmupPatchSize: 64,
+          patchSize: 64,
+          padding: 4
+        };
+      }
+
+      return {
+        key: 'detail-4x',
+        label: 'Detail 4x',
+        scale: 4,
+        modelPath: 'https://esm.sh/@upscalerjs/esrgan-medium/4x',
+        warmupPatchSize: 64,
+        patchSize: 96,
+        padding: 4
+      };
+    }
+
+    async function getEnhancerInstance() {
+      const preset = enhancerPresetConfig();
+      if (state.aiEnhancer.instances[preset.key]) {
+        return { upscaler: state.aiEnhancer.instances[preset.key], preset };
+      }
+
+      if (!state.aiEnhancer.tfPromise) {
+        state.aiEnhancer.tfPromise = import('https://esm.sh/@tensorflow/tfjs@4.22.0').catch(error => {
+          state.aiEnhancer.tfPromise = null;
+          setUserError('TensorFlow.js konnte nicht geladen werden. Bitte Internetverbindung und CDN prüfen.');
+          throw error;
+        });
+      }
+
+      if (!state.aiEnhancer.corePromise) {
+        setStatus('Lade AI-Enhancer...');
+        state.aiEnhancer.corePromise = import('https://esm.sh/upscaler@1.0.0-beta.19')
+          .then(mod => mod.default || mod)
+          .catch(error => {
+            state.aiEnhancer.corePromise = null;
+            setUserError('Der AI-Enhancer konnte nicht geladen werden. Bitte CDN und Browser-Konsole prüfen.');
+            throw error;
+          });
+      }
+
+      if (!state.aiEnhancer.modelPromises[preset.key]) {
+        state.aiEnhancer.modelPromises[preset.key] = import(preset.modelPath)
+          .then(mod => mod.default || mod)
+          .catch(error => {
+            delete state.aiEnhancer.modelPromises[preset.key];
+            setUserError(`Enhancer-Modell ${preset.label} konnte nicht geladen werden.`);
+            throw error;
+          });
+      }
+
+      await state.aiEnhancer.tfPromise;
+      const model = await state.aiEnhancer.modelPromises[preset.key];
+      const Upscaler = await state.aiEnhancer.corePromise;
+      const upscaler = new Upscaler({
+        model,
+        warmupSizes: { patchSize: preset.warmupPatchSize }
+      });
+
+      state.aiEnhancer.instances[preset.key] = upscaler;
+      return { upscaler, preset };
+    }
+
+    function loadImageFromSource(source) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+
+        if (typeof source === 'string') {
+          img.src = source;
+          return;
+        }
+
+        if (source instanceof HTMLCanvasElement) {
+          img.src = source.toDataURL('image/png');
+          return;
+        }
+
+        if (source instanceof HTMLImageElement) {
+          if (source.complete && source.naturalWidth) {
+            resolve(source);
+            return;
+          }
+          source.addEventListener('load', () => resolve(source), { once: true });
+          source.addEventListener('error', reject, { once: true });
+          return;
+        }
+
+        reject(new Error('Unbekanntes Ergebnisformat vom AI-Enhancer'));
+      });
+    }
+
+    async function applyAiResult(item, result) {
+      const img = await loadImageFromSource(result);
+      item.ai = {
+        img,
+        src: img.currentSrc || img.src
+      };
+    }
+
+    async function enhanceItems(items) {
+      if (!items.length || state.aiEnhancer.busy) {
+        return;
+      }
+
+      clearUserError();
+      state.aiEnhancer.busy = true;
+      syncActionButtons();
+
+      try {
+        const { upscaler, preset } = await getEnhancerInstance();
+        let successCount = 0;
+        let failureCount = 0;
+
+        for (let index = 0; index < items.length; index += 1) {
+          const item = items[index];
+          const source = getWorkingSource(item);
+          setStatus(`AI Enhance ${index + 1}/${items.length}: ${item.name} (${preset.label})`);
+
+          try {
+            const result = await upscaler.upscale(source, {
+              output: 'src',
+              patchSize: preset.patchSize,
+              padding: preset.padding
+            });
+            await applyAiResult(item, result);
+            successCount += 1;
+          } catch (error) {
+            console.error('AI-Enhancer fehlgeschlagen:', error);
+            setUserError(`AI-Enhancer fehlgeschlagen: ${error?.message || 'Unbekannter Fehler'}`);
+            failureCount += 1;
+          }
+
+          renderThumbs();
+          if (item.id === state.activeId) {
+            drawAll();
+          }
+        }
+
+        if (successCount && !failureCount) {
+          setStatus(`${successCount} Bild${successCount === 1 ? '' : 'er'} mit ${preset.label} AI-enhanced`);
+        } else if (successCount && failureCount) {
+          setStatus(`AI Enhance teilweise abgeschlossen: ${successCount} ok, ${failureCount} fehlgeschlagen`);
+        } else {
+          setStatus('AI-Enhancer fehlgeschlagen');
+        }
+      } finally {
+        state.aiEnhancer.busy = false;
+        syncControlsFromActive();
+        syncActionButtons();
+      }
+    }
+
+    function restoreActiveOriginal() {
+      const item = getActive();
+      if (!item || !item.ai || state.aiEnhancer.busy) return;
+      item.ai = null;
+      renderThumbs();
+      drawAll();
+      syncControlsFromActive();
+      setStatus(`AI-Ergebnis entfernt: ${item.name}`);
     }
 
     function buildExportCanvas(item) {
       const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
-      const outW = Math.max(1, Math.round(item.img.width * upscale));
-      const outH = Math.max(1, Math.round(item.img.height * upscale));
+      const source = getWorkingSource(item);
+      const outW = Math.max(1, Math.round(source.width * upscale));
+      const outH = Math.max(1, Math.round(source.height * upscale));
       const out = document.createElement('canvas');
       out.width = outW;
       out.height = outH;
@@ -713,7 +985,7 @@
 
       ctx.save();
       ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
-      ctx.drawImage(item.img, 0, 0, outW, outH);
+      ctx.drawImage(source, 0, 0, outW, outH);
       ctx.restore();
       if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
         applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
@@ -776,10 +1048,21 @@
       setStatus(`Exportiert: ${item.name}`);
     });
     exportAllBtn.addEventListener('click', exportAll);
+    enhanceActiveBtn.addEventListener('click', () => {
+      const item = getActive();
+      if (!item) {
+        setStatus('Kein Bild aktiv');
+        return;
+      }
+      enhanceItems([item]);
+    });
+    enhanceAllBtn.addEventListener('click', () => enhanceItems(state.items.slice()));
+    restoreAiBtn.addEventListener('click', restoreActiveOriginal);
 
     drawEmpty();
     updateLabels();
     syncControlsFromActive();
+    syncActionButtons();
   </script>
 </body>
 </html>
