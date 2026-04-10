@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
@@ -409,13 +410,26 @@
             </div>
 
             <div class="row">
+              <label for="showcaseRows">Zeilen</label>
+              <input id="showcaseRows" type="number" min="1" max="20" step="1" value="2" />
+            </div>
+
+            <div class="row">
               <div class="value-row"><label for="showcaseGap">Abstand</label><span id="showcaseGapVal">24 px</span></div>
               <input id="showcaseGap" type="range" min="0" max="80" value="24" />
             </div>
 
+          </div>
+
+          <div class="triple">
+
             <div class="row">
               <div class="value-row"><label for="showcaseTileWidth">Kachelbreite</label><span id="showcaseTileWidthVal">260 px</span></div>
               <input id="showcaseTileWidth" type="range" min="160" max="420" value="260" />
+            </div>
+
+            <div class="hint" style="display:flex;align-items:center;justify-content:center;text-align:center;">
+              Rastergroesse direkt ueber Zeilen und Spalten steuern.
             </div>
           </div>
 
@@ -495,6 +509,7 @@
     const controls = {
       source: document.getElementById('showcaseSource'),
       columns: document.getElementById('showcaseColumns'),
+      rows: document.getElementById('showcaseRows'),
       gap: document.getElementById('showcaseGap'),
       tileWidth: document.getElementById('showcaseTileWidth'),
       bg: document.getElementById('showcaseBg')
@@ -559,11 +574,13 @@
       const tileWidth = clamp(Number(controls.tileWidth.value) || 260, 160, 420);
       return {
         columns: clamp(Number(controls.columns.value) || 3, 1, 8),
+        rows: clamp(Number(controls.rows.value) || 2, 1, 20),
         gap: clamp(Number(controls.gap.value) || 24, 0, 80),
         tileWidth,
         tileHeight: Math.round(tileWidth * state.showcase.tileAspect),
         boardPadding: state.showcase.boardPadding,
-        labelHeight: state.showcase.labelHeight
+        labelHeight: state.showcase.labelHeight,
+        capacity: clamp(Number(controls.columns.value) || 3, 1, 8) * clamp(Number(controls.rows.value) || 2, 1, 20)
       };
     }
 
@@ -698,7 +715,12 @@
 
       renderShowcase();
       if (announce) {
-        setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} ausgerichtet`);
+        const overflow = state.showcase.items.length > metrics.capacity;
+        setStatus(
+          overflow
+            ? `Showcase ausgerichtet: ${metrics.rows} x ${metrics.columns} angefragt, ${state.showcase.items.length} Bilder brauchen mehr Platz`
+            : `Showcase mit ${metrics.rows} x ${metrics.columns} Raster ausgerichtet`
+        );
       }
     }
 
@@ -721,7 +743,12 @@
 
       autoArrangeShowcase(false);
       updateStats();
-      setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} gefuellt`);
+      const overflow = state.showcase.items.length > metrics.capacity;
+      setStatus(
+        overflow
+          ? `Showcase gefuellt, aber ${state.showcase.items.length} Bilder ueberschreiten ${metrics.rows} x ${metrics.columns}`
+          : `Showcase mit ${metrics.rows} x ${metrics.columns} gefuellt`
+      );
     }
 
     function renderShowcaseCard(entry, canvas) {
@@ -749,6 +776,9 @@
       }
 
       const metrics = getShowcaseMetrics();
+  const neededRows = Math.max(metrics.rows, Math.ceil(state.showcase.items.length / metrics.columns));
+  const gridWidth = metrics.boardPadding * 2 + (metrics.columns * metrics.tileWidth) + (Math.max(0, metrics.columns - 1) * metrics.gap);
+  const gridHeight = metrics.boardPadding * 2 + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap) + (neededRows * metrics.labelHeight);
       let maxRight = 0;
       let maxBottom = 0;
 
@@ -784,8 +814,8 @@
       });
 
       showcaseEmpty.style.display = 'none';
-      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, maxRight + metrics.boardPadding)}px`;
-      showcaseStageInner.style.height = `${Math.max(560, maxBottom + metrics.boardPadding)}px`;
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, gridWidth, maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(560, gridHeight, maxBottom + metrics.boardPadding)}px`;
       updateStats();
     }
 
@@ -810,11 +840,14 @@
       }
 
       const metrics = getShowcaseMetrics();
+      const neededRows = Math.max(metrics.rows, Math.ceil(state.showcase.items.length / metrics.columns));
+      const gridRight = metrics.boardPadding + (metrics.columns * metrics.tileWidth) + (Math.max(0, metrics.columns - 1) * metrics.gap);
+      const gridBottom = metrics.boardPadding + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap) + (neededRows * metrics.labelHeight);
       const bounds = state.showcase.items.reduce((acc, entry) => {
         acc.right = Math.max(acc.right, entry.x + entry.width);
         acc.bottom = Math.max(acc.bottom, entry.y + entry.height + metrics.labelHeight);
         return acc;
-      }, { right: 0, bottom: 0 });
+      }, { right: gridRight, bottom: gridBottom });
 
       const out = document.createElement('canvas');
       out.width = Math.max(1, Math.round(bounds.right + metrics.boardPadding));
@@ -895,11 +928,11 @@
       });
     });
 
-    controls.columns.addEventListener('change', () => {
+    [controls.columns, controls.rows].forEach(control => control.addEventListener('change', () => {
       if (state.showcase.items.length) {
         autoArrangeShowcase(true);
       }
-    });
+    }));
 
     showcasePopulateBtn.addEventListener('click', populateShowcase);
     showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
