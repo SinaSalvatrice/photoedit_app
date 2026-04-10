@@ -511,6 +511,12 @@
     const restoreAiBtn = document.getElementById('restoreAiBtn');
     const exportCurrentBtn = document.getElementById('exportCurrentBtn');
     const exportAllBtn = document.getElementById('exportAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: [],
@@ -524,6 +530,14 @@
         instances: {}
       }
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 80
+    };
+    const imageCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -541,6 +555,117 @@
 
     function clamp(v, min, max) {
       return Math.max(min, Math.min(max, v));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        enhancerPreset: controls.enhancerPreset.value,
+        upscale: controls.upscale.value,
+        format: controls.format.value,
+        quality: controls.quality.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.enhancerPreset.value = snapshot.enhancerPreset;
+      controls.upscale.value = snapshot.upscale;
+      controls.format.value = snapshot.format;
+      controls.quality.value = snapshot.quality;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        activeId: state.activeId,
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          url: item.url,
+          imgSrc: item.img.src,
+          edit: { ...item.edit },
+          ai: item.ai ? { src: item.ai.src || item.ai.img?.src || '' } : null
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        url: item.url,
+        img: restoreImage(item.imgSrc),
+        edit: { ...item.edit },
+        ai: item.ai?.src ? { img: restoreImage(item.ai.src), src: item.ai.src } : null
+      }));
+      state.activeId = snapshot.activeId;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      updateLabels();
+      renderThumbs();
+      syncControlsFromActive();
+      drawAll();
+      syncActionButtons();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      const busy = state.aiEnhancer.busy;
+      undoBtn.disabled = historyState.past.length < 2 || busy;
+      redoBtn.disabled = historyState.future.length < 1 || busy;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring || state.aiEnhancer.busy) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2 || state.aiEnhancer.busy) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length || state.aiEnhancer.busy) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function defaultEdit() {
@@ -597,6 +722,7 @@
       exportAllBtn.disabled = !hasItems || disabled;
       clearBtn.disabled = disabled;
       filesInput.disabled = disabled;
+      syncHistoryButtons();
     }
 
     function syncControlsFromActive() {
@@ -853,6 +979,7 @@
       renderThumbs();
       syncControlsFromActive();
       drawAll();
+      recordHistory();
     }
 
     async function loadFiles(fileList) {
@@ -874,7 +1001,7 @@
 
       loaded.forEach(({ file, url, img }) => {
         const id = crypto.randomUUID();
-        state.items.push({ id, name: file.name, url, img, edit: defaultEdit(), ai: null });
+        state.items.push({ id, name: file.name, url, img: cacheImage(img), edit: defaultEdit(), ai: null });
         if (!state.activeId) state.activeId = id;
       });
 
@@ -882,6 +1009,7 @@
       syncControlsFromActive();
       drawAll();
       syncActionButtons();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -907,6 +1035,7 @@
       item.edit = defaultEdit();
       syncControlsFromActive();
       drawAll();
+      recordHistory();
       setStatus(`Zurückgesetzt: ${item.name}`);
     }
 
@@ -919,6 +1048,7 @@
       syncControlsFromActive();
       drawEmpty();
       syncActionButtons();
+      recordHistory();
       setStatus('Alles gelöscht');
     }
 
@@ -1038,7 +1168,7 @@
     }
 
     async function applyAiResult(item, result) {
-      const img = await loadImageFromSource(result);
+      const img = cacheImage(await loadImageFromSource(result));
       item.ai = {
         img,
         src: img.currentSrc || img.src
@@ -1092,10 +1222,14 @@
         } else {
           setStatus('AI-Enhancer fehlgeschlagen');
         }
+        if (successCount) {
+          recordHistory();
+        }
       } finally {
         state.aiEnhancer.busy = false;
         syncControlsFromActive();
         syncActionButtons();
+        syncHistoryButtons();
       }
     }
 
@@ -1106,6 +1240,7 @@
       renderThumbs();
       drawAll();
       syncControlsFromActive();
+      recordHistory();
       setStatus(`AI-Ergebnis entfernt: ${item.name}`);
     }
 
@@ -1170,10 +1305,17 @@
     [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.denoise, controls.shadowLift, controls.highlightRecovery, controls.clarity].forEach(el => {
       el.addEventListener('input', applyControlsToActive);
       el.addEventListener('change', applyControlsToActive);
+      el.addEventListener('change', recordHistory);
+    });
+
+    [controls.enhancerPreset, controls.upscale, controls.format, controls.quality].forEach(el => {
+      el.addEventListener('change', recordHistory);
     });
 
     resetBtn.addEventListener('click', resetActive);
     clearBtn.addEventListener('click', clearAllImages);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
     exportCurrentBtn.addEventListener('click', () => {
       const item = getActive();
       if (!item) {
@@ -1195,10 +1337,28 @@
     enhanceAllBtn.addEventListener('click', () => enhanceItems(state.items.slice()));
     restoreAiBtn.addEventListener('click', restoreActiveOriginal);
 
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
     drawEmpty();
     updateLabels();
     syncControlsFromActive();
     syncActionButtons();
+    recordHistory();
   </script>
 </body>
 </html>

@@ -463,6 +463,12 @@
     const resetSelectedBtn = document.getElementById('resetSelectedBtn');
     const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: [],
@@ -471,6 +477,14 @@
       referenceId: null,
       pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -478,6 +492,98 @@
 
     function clamp(v, min, max) {
       return Math.max(min, Math.min(max, v));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function createSnapshot() {
+      return {
+        format: formatEl.value,
+        quality: qualityEl.value,
+        activeId: state.activeId,
+        referenceId: state.referenceId,
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          selected: item.selected,
+          edit: { ...item.edit }
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      formatEl.value = snapshot.format;
+      qualityEl.value = snapshot.quality;
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        selected: item.selected,
+        edit: { ...item.edit }
+      }));
+      state.activeId = snapshot.activeId;
+      state.referenceId = snapshot.referenceId;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function escapeHtml(str) {
@@ -769,7 +875,7 @@
         state.items.push({
           id,
           name: file.name,
-          img,
+          img: cacheImage(img),
           selected: true,
           edit: defaultEdit()
         });
@@ -778,6 +884,7 @@
       });
 
       renderGrid();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -989,6 +1096,7 @@
         adjustmentOutputs[key].textContent = formatAdjustmentValue(key, item.edit[key]);
         refreshCard(item.id);
       });
+      input.addEventListener('change', recordHistory);
     });
 
     resetEditorBtn.addEventListener('click', () => {
@@ -999,26 +1107,40 @@
       }
       item.edit = defaultEdit();
       refreshCard(item.id);
+      recordHistory();
       setStatus(`Editor zurückgesetzt: ${item.name}`);
     });
 
     selectAllBtn.addEventListener('click', () => {
       state.items.forEach(item => item.selected = true);
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder markiert');
     });
 
     selectNoneBtn.addEventListener('click', () => {
       state.items.forEach(item => item.selected = false);
       renderGrid();
+      recordHistory();
       setStatus('Markierung gelöscht');
     });
 
-    clearBtn.addEventListener('click', clearAll);
-    matchToReferenceBtn.addEventListener('click', matchSelectedToReference);
-    resetSelectedBtn.addEventListener('click', resetSelected);
+    clearBtn.addEventListener('click', () => {
+      clearAll();
+      recordHistory();
+    });
+    matchToReferenceBtn.addEventListener('click', () => {
+      matchSelectedToReference();
+      recordHistory();
+    });
+    resetSelectedBtn.addEventListener('click', () => {
+      resetSelected();
+      recordHistory();
+    });
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     imageGrid.addEventListener('change', evt => {
       if (!evt.target.matches('input[type="checkbox"]')) return;
@@ -1027,12 +1149,14 @@
       item.selected = evt.target.checked;
       evt.target.closest('.card').classList.toggle('selected', item.selected);
       refreshStats();
+      recordHistory();
     });
 
     imageGrid.addEventListener('click', evt => {
       const card = evt.target.closest('.card');
       if (card && !evt.target.closest('button, input[type="checkbox"]')) {
         setActiveItem(card.dataset.id);
+        recordHistory();
       }
 
       const btn = evt.target.closest('button[data-action]');
@@ -1044,6 +1168,7 @@
       if (action === 'reference') {
         state.referenceId = item.id;
         renderGrid();
+        recordHistory();
         setStatus(`Referenz gesetzt: ${item.name}`);
       }
       if (action === 'fit') {
@@ -1051,11 +1176,13 @@
         item.edit.panX = 0;
         item.edit.panY = 0;
         refreshCard(item.id);
+        recordHistory();
         setStatus(`Eingepasst: ${item.name}`);
       }
       if (action === 'reset') {
         item.edit = defaultEdit();
         refreshCard(item.id);
+        recordHistory();
         setStatus(`Zurückgesetzt: ${item.name}`);
       }
       if (action === 'export') {
@@ -1102,6 +1229,7 @@
       try { state.dragging.canvas.releasePointerCapture(evt.pointerId); } catch (_) {}
       state.dragging.canvas.style.cursor = 'grab';
       state.dragging = null;
+      recordHistory();
     }
 
     imageGrid.addEventListener('pointerup', endDrag);
@@ -1117,6 +1245,7 @@
       drawPreview(item, canvas);
       const row = canvas.closest('.card')?.querySelector('.mini-row');
       if (row) row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      recordHistory();
     }, { passive: false });
 
     window.addEventListener('resize', () => {
@@ -1124,7 +1253,23 @@
       window.__refResizeTimer = setTimeout(refreshVisibleCanvases, 80);
     });
 
+    window.addEventListener('keydown', evt => {
+      if (!(evt.ctrlKey || evt.metaKey)) return;
+      if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
+      const key = evt.key.toLowerCase();
+      if (key === 'z' && !evt.shiftKey) {
+        evt.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && evt.shiftKey)) {
+        evt.preventDefault();
+        redoHistory();
+      }
+    });
+
     renderGrid();
+    recordHistory();
   </script>
 </body>
 </html>

@@ -1154,6 +1154,7 @@
         item.selected = true;
       });
       renderThumbs();
+      recordHistory();
       setStatus('Alle Bilder markiert');
     });
 
@@ -1162,6 +1163,7 @@
         item.selected = false;
       });
       renderThumbs();
+      recordHistory();
       setStatus('Keine Bilder markiert');
     });
 
@@ -1171,6 +1173,7 @@
       filesInput.value = '';
       renderThumbs();
       renderShowcase();
+      recordHistory();
       setStatus('Alle Bilder entfernt');
     });
 
@@ -1190,18 +1193,35 @@
           autoArrangeShowcase(false);
         }
       });
+      control.addEventListener('change', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(false);
+        }
+        recordHistory();
+      });
     });
 
     [controls.columns, controls.rows].forEach(control => control.addEventListener('change', () => {
       if (state.showcase.items.length) {
         autoArrangeShowcase(true);
       }
+      recordHistory();
     }));
 
+    [controls.source, controls.bg, controls.emptyCount].forEach(control => {
+      control.addEventListener('change', recordHistory);
+    });
+
     showcasePopulateBtn.addEventListener('click', populateShowcase);
-    showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
+    showcaseArrangeBtn.addEventListener('click', () => {
+      autoArrangeShowcase(true);
+      recordHistory();
+    });
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
     showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     showcaseStage.addEventListener('pointerdown', event => {
       const card = event.target.closest('.showcase-item');
@@ -1270,6 +1290,7 @@
         targetEntry.x = originalX;
         targetEntry.y = originalY;
         renderShowcase();
+        recordHistory();
         setStatus('Positionen getauscht');
       }
 
@@ -1287,6 +1308,19 @@
     showcaseStage.addEventListener('pointercancel', endShowcaseDrag);
 
     window.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && !/input|textarea|select/i.test(event.target?.tagName || '')) {
+        const key = event.key.toLowerCase();
+        if (key === 'z' && !event.shiftKey) {
+          event.preventDefault();
+          undoHistory();
+          return;
+        }
+        if (key === 'y' || (key === 'z' && event.shiftKey)) {
+          event.preventDefault();
+          redoHistory();
+          return;
+        }
+      }
       if (event.key.toLowerCase() !== 'r') {
         return;
       }
@@ -1307,6 +1341,7 @@
     updateLabels();
     renderThumbs();
     renderShowcase();
+    recordHistory();
   </script>
 </body>
 </html>
