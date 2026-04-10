@@ -459,27 +459,6 @@
             </select>
           </div>
 
-          <div class="row">
-            <label for="showcaseContentFit">Bildgroesse berechnen nach</label>
-            <select id="showcaseContentFit">
-              <option value="frame">Gesamter Bildrahmen</option>
-              <option value="visible">Nur sichtbaren Pixeln</option>
-            </select>
-          </div>
-
-          <div class="row">
-            <label for="showcaseCaseMode">Alphabet-Relation</label>
-            <select id="showcaseCaseMode">
-              <option value="none">Keine Sonderbehandlung</option>
-              <option value="filename">Aus Dateinamen ableiten</option>
-            </select>
-          </div>
-
-          <div class="row">
-            <div class="value-row"><label for="showcaseLowercaseRatio">Kleinbuchstabenhoehe</label><span id="showcaseLowercaseRatioVal">72 %</span></div>
-            <input id="showcaseLowercaseRatio" type="range" min="40" max="100" value="72" />
-          </div>
-
           <div class="button-row">
             <button id="showcasePopulateBtn">Raster fuellen</button>
             <button id="showcaseArrangeBtn" class="secondary">Automatisch ausrichten</button>
@@ -502,9 +481,6 @@
             Die Kacheln sind absichtlich etwas breiter als hoch, damit einzelne Motive weniger vertikal gestreckt wirken. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
           </div>
 
-          <div class="hint">
-            Fuer Alphabete ist <strong>Nur sichtbare Pixel</strong> gedacht: transparente Raender werden ignoriert. Mit <strong>Aus Dateinamen ableiten</strong> werden Dateien wie <strong>A.png</strong> und <strong>a.png</strong> automatisch als Gross- und Kleinbuchstaben behandelt.
-          </div>
         </div>
       </div>
 
@@ -567,16 +543,12 @@
       gap: document.getElementById('showcaseGap'),
       tileWidth: document.getElementById('showcaseTileWidth'),
       bg: document.getElementById('showcaseBg'),
-      contentFit: document.getElementById('showcaseContentFit'),
-      caseMode: document.getElementById('showcaseCaseMode'),
-      lowercaseRatio: document.getElementById('showcaseLowercaseRatio'),
       emptyCount: document.getElementById('showcaseEmptyCount')
     };
 
     const labels = {
       gap: document.getElementById('showcaseGapVal'),
-      tileWidth: document.getElementById('showcaseTileWidthVal'),
-      lowercaseRatio: document.getElementById('showcaseLowercaseRatioVal')
+      tileWidth: document.getElementById('showcaseTileWidthVal')
     };
 
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -611,7 +583,6 @@
     function updateLabels() {
       labels.gap.textContent = `${controls.gap.value} px`;
       labels.tileWidth.textContent = `${controls.tileWidth.value} px`;
-      labels.lowercaseRatio.textContent = `${controls.lowercaseRatio.value} %`;
     }
 
     function updateStats() {
@@ -669,101 +640,6 @@
       state.showcase.items = state.showcase.items.filter(item => item.isEmpty || validIds.has(item.sourceId));
     }
 
-    function createOffscreenCanvas(width, height) {
-      if (typeof OffscreenCanvas !== 'undefined') {
-        return new OffscreenCanvas(width, height);
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      return canvas;
-    }
-
-    function getAlphaBounds(img, alphaThreshold = 8) {
-      const canvas = createOffscreenCanvas(img.width, img.height);
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.clearRect(0, 0, img.width, img.height);
-      ctx.drawImage(img, 0, 0);
-
-      const data = ctx.getImageData(0, 0, img.width, img.height).data;
-      let minX = img.width;
-      let minY = img.height;
-      let maxX = -1;
-      let maxY = -1;
-
-      for (let y = 0; y < img.height; y += 1) {
-        for (let x = 0; x < img.width; x += 1) {
-          const alpha = data[((y * img.width) + x) * 4 + 3];
-          if (alpha <= alphaThreshold) {
-            continue;
-          }
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
-      }
-
-      if (maxX < minX || maxY < minY) {
-        return { x: 0, y: 0, width: img.width, height: img.height };
-      }
-
-      return {
-        x: minX,
-        y: minY,
-        width: maxX - minX + 1,
-        height: maxY - minY + 1
-      };
-    }
-
-    function detectCaseGroup(name) {
-      const base = name.replace(/\.[^.]+$/, '').trim();
-      const marker = Array.from(base).find(char => char.toLowerCase() !== char.toUpperCase());
-      if (!marker) {
-        return 'neutral';
-      }
-      return marker === marker.toUpperCase() ? 'uppercase' : 'lowercase';
-    }
-
-    function getSourceBounds(item) {
-      return controls.contentFit.value === 'visible'
-        ? item.alphaBounds
-        : item.fullBounds;
-    }
-
-    function getCaseScale(item) {
-      if (controls.caseMode.value !== 'filename') {
-        return 1;
-      }
-      return item.caseGroup === 'lowercase'
-        ? clamp((Number(controls.lowercaseRatio.value) || 72) / 100, 0.4, 1)
-        : 1;
-    }
-
-    function getPreviewPlacement(item, width, height) {
-      const bounds = getSourceBounds(item);
-      const caseScale = getCaseScale(item);
-      const targetHeight = height * caseScale;
-      const scale = Math.min(width / bounds.width, targetHeight / bounds.height);
-      const drawWidth = bounds.width * scale;
-      const drawHeight = bounds.height * scale;
-      const x = (width - drawWidth) / 2;
-      const y = controls.caseMode.value === 'filename'
-        ? height - drawHeight
-        : (height - drawHeight) / 2;
-
-      return {
-        sourceX: bounds.x,
-        sourceY: bounds.y,
-        sourceWidth: bounds.width,
-        sourceHeight: bounds.height,
-        x,
-        y,
-        width: drawWidth,
-        height: drawHeight
-      };
-    }
-
     function getContainedPlacement(img, width, height) {
       const scale = Math.min(width / img.width, height / img.height);
       const drawWidth = img.width * scale;
@@ -782,18 +658,8 @@
       ctx.fillStyle = '#0b1016';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const placement = getPreviewPlacement(item, canvas.width, canvas.height);
-      ctx.drawImage(
-        item.img,
-        placement.sourceX,
-        placement.sourceY,
-        placement.sourceWidth,
-        placement.sourceHeight,
-        placement.x,
-        placement.y,
-        placement.width,
-        placement.height
-      );
+      const placement = getContainedPlacement(item.img, canvas.width, canvas.height);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
     }
 
     function renderThumbs() {
@@ -823,12 +689,7 @@
         preview.alt = item.name;
 
         const meta = document.createElement('div');
-        const caseLabel = item.caseGroup === 'uppercase'
-          ? 'Gross'
-          : item.caseGroup === 'lowercase'
-            ? 'Klein'
-            : 'Neutral';
-        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px • ${caseLabel}</div>`;
+        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px</div>`;
 
         card.appendChild(checkbox);
         card.appendChild(preview);
@@ -869,15 +730,11 @@
       );
 
       loaded.forEach(({ file, img }) => {
-        const fullBounds = { x: 0, y: 0, width: img.width, height: img.height };
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
           img,
-          selected: true,
-          fullBounds,
-          alphaBounds: getAlphaBounds(img),
-          caseGroup: detectCaseGroup(file.name)
+          selected: true
         });
       });
 
@@ -1194,15 +1051,11 @@
       }
     });
 
-    [controls.gap, controls.tileWidth, controls.lowercaseRatio].forEach(control => {
+    [controls.gap, controls.tileWidth].forEach(control => {
       control.addEventListener('input', () => {
         updateLabels();
         if (state.showcase.items.length) {
-          if (control === controls.gap || control === controls.tileWidth) {
-            autoArrangeShowcase(false);
-          } else {
-            renderShowcase();
-          }
+          autoArrangeShowcase(false);
         }
       });
     });
@@ -1212,14 +1065,6 @@
         autoArrangeShowcase(true);
       }
     }));
-
-    [controls.contentFit, controls.caseMode, controls.bg].forEach(control => {
-      control.addEventListener('change', () => {
-        if (state.showcase.items.length) {
-          renderShowcase();
-        }
-      });
-    });
 
     showcasePopulateBtn.addEventListener('click', populateShowcase);
     showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));

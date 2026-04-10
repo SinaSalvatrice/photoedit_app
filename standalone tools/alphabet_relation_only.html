@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alphabet Relation Tool</title>
+  <style>
+    :root {
+      --bg: #f2eadf;
+      --ink: #1e1c1a;
+      --panel: rgba(255, 252, 247, 0.92);
+      --panel-2: #efe4d3;
+      --line: #d4c3ae;
+      --muted: #6d6154;
+      --accent: #b45c3b;
+      --accent-2: #8e4329;
+      --canvas: #fff9f1;
+      --guide: rgba(180, 92, 59, 0.42);
+      --guide-2: rgba(39, 94, 158, 0.32);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.62), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(180, 92, 59, 0.1), transparent 28%),
+        linear-gradient(180deg, #eadfcf 0%, #f2eadf 100%);
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1680px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(112, 87, 64, 0.16);
+      border-radius: 28px;
+      box-shadow: 0 24px 70px rgba(65, 47, 32, 0.12);
+      overflow: hidden;
+      backdrop-filter: blur(14px);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 20px;
+      border-bottom: 1px solid rgba(112, 87, 64, 0.12);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+
+    h1 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 0.98rem;
+      margin-bottom: 12px;
+    }
+
+    .sub {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.93rem;
+      margin-bottom: 14px;
+    }
+
+    .controls,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    input[type="range"],
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px dashed #b49d83;
+      background: rgba(255, 255, 255, 0.5);
+      color: var(--muted);
+    }
+
+    input[type="number"],
+    select {
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--ink);
+      border: 1px solid #d2c0ab;
+      border-radius: 13px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #a95737;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.94rem;
+      font-weight: 650;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(180, 92, 59, 0.18);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--ink);
+      border-color: #ccb8a1;
+      box-shadow: none;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .hint {
+      border: 1px solid rgba(180, 92, 59, 0.18);
+      background: rgba(180, 92, 59, 0.08);
+      color: #5f4739;
+      border-radius: 16px;
+      padding: 12px;
+      line-height: 1.48;
+      font-size: 0.9rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border: 1px solid rgba(112, 87, 64, 0.14);
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .stat .k {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .stat .v {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .workspace {
+      min-height: calc(100vh - 32px);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      padding: 20px;
+      border-bottom: 1px solid rgba(112, 87, 64, 0.12);
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .status {
+      padding: 9px 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(112, 87, 64, 0.15);
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--muted);
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .workspace-body {
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .empty {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed #ccb29a;
+      border-radius: 24px;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.36) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.36) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.36) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.36) 75%),
+        rgba(255, 251, 245, 0.74);
+      background-position: 0 0, 16px 16px;
+      background-size: 32px 32px;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid rgba(112, 87, 64, 0.14);
+      border-radius: 24px;
+      overflow: hidden;
+      background: rgba(255, 252, 247, 0.92);
+      box-shadow: 0 12px 32px rgba(65, 47, 32, 0.08);
+    }
+
+    .preview-shell {
+      padding: 16px;
+      border-bottom: 1px solid rgba(112, 87, 64, 0.1);
+      background:
+        linear-gradient(45deg, rgba(117, 89, 63, 0.04) 25%, transparent 25%, transparent 75%, rgba(117, 89, 63, 0.04) 75%),
+        linear-gradient(45deg, rgba(117, 89, 63, 0.04) 25%, transparent 25%, transparent 75%, rgba(117, 89, 63, 0.04) 75%),
+        var(--canvas);
+      background-position: 0 0, 14px 14px;
+      background-size: 28px 28px;
+    }
+
+    .preview-shell canvas {
+      width: 100%;
+      height: 220px;
+      display: block;
+      border-radius: 18px;
+      background: transparent;
+    }
+
+    .card-body {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .name {
+      font-size: 0.96rem;
+      font-weight: 700;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.76rem;
+      background: rgba(180, 92, 59, 0.09);
+      color: #85543d;
+      border: 1px solid rgba(180, 92, 59, 0.12);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card-actions button {
+      flex: 1 1 140px;
+    }
+
+    .fine {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 1140px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 12px; }
+
+      .two,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Alphabet Relation Tool</h1>
+        <p class="sub">Ein eigenes Werkzeug nur fuer Glyphen-Normalisierung: sichtbare Pixel statt transparenter PNG-Raender, feste Versalhoehe und automatisch kleinere Gemeine.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="reanalyzeBtn" class="secondary">Bounds neu berechnen</button>
+            <button id="clearBtn" class="secondary">Alles entfernen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Relation</h2>
+        <div class="stack">
+          <div class="two">
+            <div class="row">
+              <label for="capHeight">Versalhoehe</label>
+              <input id="capHeight" type="number" min="16" max="1000" step="1" value="100" />
+            </div>
+
+            <div class="row">
+              <label for="alphaThreshold">Alpha-Schwelle</label>
+              <input id="alphaThreshold" type="number" min="1" max="255" step="1" value="8" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="lowercaseRatio">Gemeine zu Versalien</label><span id="lowercaseRatioVal">72 %</span></div>
+            <input id="lowercaseRatio" type="range" min="40" max="100" value="72" />
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="topPadding">Oberer Rand</label>
+              <input id="topPadding" type="number" min="0" max="300" step="1" value="10" />
+            </div>
+
+            <div class="row">
+              <label for="bottomPadding">Unterer Rand</label>
+              <input id="bottomPadding" type="number" min="0" max="300" step="1" value="14" />
+            </div>
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="sidePadding">Seitenrand</label>
+              <input id="sidePadding" type="number" min="0" max="300" step="1" value="14" />
+            </div>
+
+            <div class="row">
+              <label for="exportBg">Export-Hintergrund</label>
+              <select id="exportBg">
+                <option value="transparent">Transparent</option>
+                <option value="white">Weiss</option>
+                <option value="black">Schwarz</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button id="exportAllBtn">Alle PNGs exportieren</button>
+          </div>
+
+          <div class="hint">
+            Dateinamen wie <strong>A.png</strong> und <strong>a.png</strong> werden automatisch als gross bzw. klein erkannt. Wenn deine Dateien anders heissen, kannst du den Fall pro Karte manuell umstellen.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Uebersicht</h2>
+        <div class="stats">
+          <div class="stat">
+            <div class="k">Geladen</div>
+            <div id="statCount" class="v">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">Versalien</div>
+            <div id="statUpper" class="v">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">Gemeine</div>
+            <div id="statLower" class="v">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">Neutral</div>
+            <div id="statNeutral" class="v">0</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="topbar">
+        <div>
+          <h2>Normierte Glyphen</h2>
+          <p class="sub" style="margin: 6px 0 0 0;">Die Vorschau zeigt die exportierte Zielgroesse. Die rote Linie ist die Grundlinie, die blaue Linie die Versaloberkante.</p>
+        </div>
+
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div class="workspace-body">
+        <div id="emptyState" class="empty">Lade Buchstaben-PNGs mit transparentem Hintergrund. Das Tool ignoriert den leeren Rand, bringt alle Glyphen auf dieselbe Versalhoehe und skaliert Gemeine automatisch kleiner.</div>
+        <div id="grid" class="grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const reanalyzeBtn = document.getElementById('reanalyzeBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportAllBtn = document.getElementById('exportAllBtn');
+    const grid = document.getElementById('grid');
+    const emptyState = document.getElementById('emptyState');
+    const statusText = document.getElementById('statusText');
+    const statCount = document.getElementById('statCount');
+    const statUpper = document.getElementById('statUpper');
+    const statLower = document.getElementById('statLower');
+    const statNeutral = document.getElementById('statNeutral');
+    const lowercaseRatioVal = document.getElementById('lowercaseRatioVal');
+
+    const controls = {
+      capHeight: document.getElementById('capHeight'),
+      lowercaseRatio: document.getElementById('lowercaseRatio'),
+      alphaThreshold: document.getElementById('alphaThreshold'),
+      topPadding: document.getElementById('topPadding'),
+      bottomPadding: document.getElementById('bottomPadding'),
+      sidePadding: document.getElementById('sidePadding'),
+      exportBg: document.getElementById('exportBg')
+    };
+
+    const state = {
+      items: [],
+      previewPixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function fileBase(name) {
+      return name.replace(/\.[^.]+$/, '');
+    }
+
+    function createOffscreenCanvas(width, height) {
+      if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function getAlphaBounds(img, alphaThreshold) {
+      const threshold = clamp(Number(alphaThreshold) || 8, 1, 255);
+      const canvas = createOffscreenCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+
+      const data = ctx.getImageData(0, 0, img.width, img.height).data;
+      let minX = img.width;
+      let minY = img.height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const alpha = data[((y * img.width) + x) * 4 + 3];
+          if (alpha <= threshold) {
+            continue;
+          }
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return { x: 0, y: 0, width: img.width, height: img.height };
+      }
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    function inferCaseGroup(name) {
+      const marker = Array.from(fileBase(name)).find(char => char.toLowerCase() !== char.toUpperCase());
+      if (!marker) {
+        return 'neutral';
+      }
+      return marker === marker.toUpperCase() ? 'uppercase' : 'lowercase';
+    }
+
+    function effectiveCaseGroup(item) {
+      return item.caseOverride || item.inferredCase || 'neutral';
+    }
+
+    function updateSummary() {
+      statCount.textContent = String(state.items.length);
+      statUpper.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'uppercase').length);
+      statLower.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'lowercase').length);
+      statNeutral.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'neutral').length);
+      lowercaseRatioVal.textContent = `${controls.lowercaseRatio.value} %`;
+    }
+
+    function getTargetVisibleHeight(item) {
+      const capHeight = clamp(Number(controls.capHeight.value) || 100, 16, 1000);
+      const ratio = clamp((Number(controls.lowercaseRatio.value) || 72) / 100, 0.4, 1);
+      const group = effectiveCaseGroup(item);
+      return group === 'lowercase' ? capHeight * ratio : capHeight;
+    }
+
+    function getNormalizedMetrics(item) {
+      const bounds = item.alphaBounds || { x: 0, y: 0, width: item.img.width, height: item.img.height };
+      const capHeight = clamp(Number(controls.capHeight.value) || 100, 16, 1000);
+      const targetVisibleHeight = getTargetVisibleHeight(item);
+      const topPadding = clamp(Number(controls.topPadding.value) || 0, 0, 300);
+      const bottomPadding = clamp(Number(controls.bottomPadding.value) || 0, 0, 300);
+      const sidePadding = clamp(Number(controls.sidePadding.value) || 0, 0, 300);
+      const scale = targetVisibleHeight / Math.max(1, bounds.height);
+      const drawWidth = bounds.width * scale;
+      const drawHeight = bounds.height * scale;
+      const outputWidth = Math.max(1, Math.round(drawWidth + sidePadding * 2));
+      const outputHeight = Math.max(1, Math.round(topPadding + capHeight + bottomPadding));
+      const baselineY = topPadding + capHeight;
+      const drawX = (outputWidth - drawWidth) / 2;
+      const drawY = baselineY - drawHeight;
+
+      return {
+        bounds,
+        scale,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight,
+        outputWidth,
+        outputHeight,
+        baselineY,
+        capTopY: topPadding,
+        targetVisibleHeight
+      };
+    }
+
+    function buildNormalizedCanvas(item, background) {
+      const metrics = getNormalizedMetrics(item);
+      const out = document.createElement('canvas');
+      out.width = metrics.outputWidth;
+      out.height = metrics.outputHeight;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      if (background === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else if (background === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, out.width, out.height);
+      }
+
+      ctx.drawImage(
+        item.img,
+        metrics.bounds.x,
+        metrics.bounds.y,
+        metrics.bounds.width,
+        metrics.bounds.height,
+        metrics.drawX,
+        metrics.drawY,
+        metrics.drawWidth,
+        metrics.drawHeight
+      );
+
+      return { canvas: out, metrics };
+    }
+
+    function drawPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      const ratio = state.previewPixelRatio;
+      const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
+      const height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const previewBg = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim() || '#fff9f1';
+      ctx.fillStyle = previewBg;
+      ctx.fillRect(0, 0, width, height);
+
+      const normalized = buildNormalizedCanvas(item, 'transparent');
+      const margin = 26 * ratio;
+      const availableWidth = Math.max(1, width - margin * 2);
+      const availableHeight = Math.max(1, height - margin * 2);
+      const scale = Math.min(
+        availableWidth / normalized.canvas.width,
+        availableHeight / normalized.canvas.height
+      );
+
+      const drawWidth = normalized.canvas.width * scale;
+      const drawHeight = normalized.canvas.height * scale;
+      const offsetX = (width - drawWidth) / 2;
+      const offsetY = (height - drawHeight) / 2;
+
+      ctx.drawImage(normalized.canvas, offsetX, offsetY, drawWidth, drawHeight);
+
+      ctx.save();
+      ctx.lineWidth = Math.max(1, ratio);
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--guide').trim() || 'rgba(180, 92, 59, 0.42)';
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + normalized.metrics.baselineY * scale);
+      ctx.lineTo(offsetX + drawWidth, offsetY + normalized.metrics.baselineY * scale);
+      ctx.stroke();
+
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--guide-2').trim() || 'rgba(39, 94, 158, 0.32)';
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + normalized.metrics.capTopY * scale);
+      ctx.lineTo(offsetX + drawWidth, offsetY + normalized.metrics.capTopY * scale);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function renderGrid() {
+      grid.innerHTML = '';
+      emptyState.style.display = state.items.length ? 'none' : 'grid';
+
+      state.items.forEach(item => {
+        const metrics = getNormalizedMetrics(item);
+        const card = document.createElement('article');
+        card.className = 'card';
+
+        const previewShell = document.createElement('div');
+        previewShell.className = 'preview-shell';
+
+        const previewCanvas = document.createElement('canvas');
+        previewShell.appendChild(previewCanvas);
+
+        const body = document.createElement('div');
+        body.className = 'card-body';
+
+        const inferredLabel = item.caseOverride ? `${effectiveCaseGroup(item)} manuell` : `${item.inferredCase} erkannt`;
+        const badgeLabel = effectiveCaseGroup(item) === 'uppercase'
+          ? 'Versal'
+          : effectiveCaseGroup(item) === 'lowercase'
+            ? 'Gemeine'
+            : 'Neutral';
+
+        body.innerHTML = `
+          <div class="card-head">
+            <div class="name">${escapeHtml(item.name)}</div>
+            <div class="badge">${badgeLabel}</div>
+          </div>
+          <div class="row">
+            <label>Fall</label>
+            <select data-role="caseSelect">
+              <option value="uppercase"${effectiveCaseGroup(item) === 'uppercase' ? ' selected' : ''}>Versal</option>
+              <option value="lowercase"${effectiveCaseGroup(item) === 'lowercase' ? ' selected' : ''}>Gemeine</option>
+              <option value="neutral"${effectiveCaseGroup(item) === 'neutral' ? ' selected' : ''}>Neutral</option>
+            </select>
+          </div>
+          <div class="meta">
+            Ursprung: ${item.img.width} x ${item.img.height} px<br />
+            Sichtbarer Bereich: ${item.alphaBounds.width} x ${item.alphaBounds.height} px<br />
+            Ziel: ${Math.round(metrics.targetVisibleHeight)} px sichtbare Hoehe, Export ${metrics.outputWidth} x ${metrics.outputHeight} px<br />
+            Info: ${escapeHtml(inferredLabel)}
+          </div>
+        `;
+
+        const actions = document.createElement('div');
+        actions.className = 'card-actions';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'secondary';
+        exportBtn.textContent = 'PNG exportieren';
+        exportBtn.addEventListener('click', () => exportItem(item));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'secondary';
+        removeBtn.textContent = 'Entfernen';
+        removeBtn.addEventListener('click', () => removeItem(item.id));
+
+        actions.appendChild(exportBtn);
+        actions.appendChild(removeBtn);
+        body.appendChild(actions);
+
+        const fine = document.createElement('div');
+        fine.className = 'fine';
+        fine.textContent = 'Blau = Versaloberkante, Rot = Grundlinie.';
+        body.appendChild(fine);
+
+        const select = body.querySelector('[data-role="caseSelect"]');
+        select.addEventListener('change', () => {
+          item.caseOverride = select.value;
+          updateSummary();
+          renderGrid();
+          setStatus(`${item.name}: Fall auf ${select.options[select.selectedIndex].textContent} gesetzt`);
+        });
+
+        card.appendChild(previewShell);
+        card.appendChild(body);
+        grid.appendChild(card);
+        drawPreview(item, previewCanvas);
+      });
+
+      updateSummary();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve({ file, img });
+            img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${file.name}`));
+            img.src = reader.result;
+          };
+          reader.onerror = () => reject(new Error(`Datei konnte nicht gelesen werden: ${file.name}`));
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      const alphaThreshold = clamp(Number(controls.alphaThreshold.value) || 8, 1, 255);
+
+      loaded.forEach(({ file, img }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img,
+          inferredCase: inferCaseGroup(file.name),
+          caseOverride: null,
+          alphaBounds: getAlphaBounds(img, alphaThreshold)
+        });
+      });
+
+      renderGrid();
+      setStatus(`${loaded.length} Bild${loaded.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function removeItem(id) {
+      state.items = state.items.filter(item => item.id !== id);
+      renderGrid();
+      setStatus('Bild entfernt');
+    }
+
+    function reanalyzeBounds() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder geladen');
+        return;
+      }
+
+      const alphaThreshold = clamp(Number(controls.alphaThreshold.value) || 8, 1, 255);
+      state.items.forEach(item => {
+        item.alphaBounds = getAlphaBounds(item.img, alphaThreshold);
+      });
+      renderGrid();
+      setStatus(`Bounds mit Alpha-Schwelle ${alphaThreshold} neu berechnet`);
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function downloadCanvas(canvas, filenameBase, mime, quality) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL(mime, quality);
+      link.download = `${filenameBase}.${fileExtFromMime(mime)}`;
+      link.click();
+    }
+
+    function exportItem(item) {
+      const bg = controls.exportBg.value;
+      const result = buildNormalizedCanvas(item, bg);
+      downloadCanvas(result.canvas, `${fileBase(item.name)}-normalized`, 'image/png', 1);
+      setStatus(`${item.name} exportiert`);
+    }
+
+    async function exportAllItems() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder zum Exportieren');
+        return;
+      }
+
+      for (let index = 0; index < state.items.length; index += 1) {
+        exportItem(state.items[index]);
+        await new Promise(resolve => window.setTimeout(resolve, 90));
+      }
+
+      setStatus(`${state.items.length} PNG${state.items.length === 1 ? '' : 's'} exportiert`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      filesInput.value = '';
+      renderGrid();
+      setStatus('Alle Bilder entfernt');
+    }
+
+    function rerenderIfNeeded() {
+      if (!state.items.length) {
+        updateSummary();
+        return;
+      }
+      renderGrid();
+    }
+
+    filesInput.addEventListener('change', async event => {
+      try {
+        await loadFiles(event.target.files);
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Bilder konnten nicht geladen werden');
+      }
+    });
+
+    reanalyzeBtn.addEventListener('click', reanalyzeBounds);
+    clearBtn.addEventListener('click', clearAll);
+    exportAllBtn.addEventListener('click', exportAllItems);
+
+    [controls.capHeight, controls.topPadding, controls.bottomPadding, controls.sidePadding].forEach(control => {
+      control.addEventListener('input', rerenderIfNeeded);
+    });
+
+    controls.lowercaseRatio.addEventListener('input', () => {
+      updateSummary();
+      rerenderIfNeeded();
+    });
+
+    controls.exportBg.addEventListener('change', () => {
+      if (state.items.length) {
+        setStatus(`Export-Hintergrund: ${controls.exportBg.options[controls.exportBg.selectedIndex].textContent}`);
+      }
+    });
+
+    controls.alphaThreshold.addEventListener('change', () => {
+      if (state.items.length) {
+        reanalyzeBounds();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.items.length) {
+        renderGrid();
+      }
+    });
+
+    updateSummary();
+  </script>
+</body>
+</html>
