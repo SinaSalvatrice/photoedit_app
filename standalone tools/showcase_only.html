@@ -558,6 +558,12 @@
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
     const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: [],
@@ -571,6 +577,14 @@
         emptyCounter: 0
       }
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -578,6 +592,120 @@
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        source: controls.source.value,
+        columns: controls.columns.value,
+        rows: controls.rows.value,
+        gap: controls.gap.value,
+        tileWidth: controls.tileWidth.value,
+        bg: controls.bg.value,
+        emptyCount: controls.emptyCount.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.source.value = snapshot.source;
+      controls.columns.value = snapshot.columns;
+      controls.rows.value = snapshot.rows;
+      controls.gap.value = snapshot.gap;
+      controls.tileWidth.value = snapshot.tileWidth;
+      controls.bg.value = snapshot.bg;
+      controls.emptyCount.value = snapshot.emptyCount;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          selected: item.selected
+        })),
+        showcase: {
+          emptyCounter: state.showcase.emptyCounter,
+          items: state.showcase.items.map(entry => ({ ...entry }))
+        }
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        selected: item.selected
+      }));
+      state.showcase.items = (snapshot.showcase?.items || []).map(entry => ({ ...entry }));
+      state.showcase.emptyCounter = snapshot.showcase?.emptyCounter || 0;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      updateLabels();
+      renderThumbs();
+      renderShowcase();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function updateLabels() {
@@ -682,6 +810,7 @@
           item.selected = checkbox.checked;
           renderThumbs();
           updateStats();
+          recordHistory();
         });
 
         const preview = document.createElement('img');
@@ -733,13 +862,14 @@
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
-          img,
+          img: cacheImage(img),
           selected: true
         });
       });
 
       renderThumbs();
       renderShowcase();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -794,6 +924,7 @@
 
       autoArrangeShowcase(false);
       updateStats();
+      recordHistory();
       const overflow = state.showcase.items.length > metrics.capacity;
       setStatus(
         overflow
@@ -970,6 +1101,7 @@
 
       autoArrangeShowcase(false);
       updateStats();
+      recordHistory();
       setStatus(`${count} leere Kachel${count === 1 ? '' : 'n'} hinzugefuegt`);
     }
 
