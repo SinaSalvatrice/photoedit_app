@@ -356,6 +356,22 @@
             <div class="value-row"><label for="sharpness">Schärfe</label><span id="sharpnessVal">0</span></div>
             <input id="sharpness" type="range" min="0" max="100" value="0">
           </div>
+          <div class="row">
+            <div class="value-row"><label for="denoise">Denoise</label><span id="denoiseVal">0</span></div>
+            <input id="denoise" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="shadowLift">Schatten retten</label><span id="shadowLiftVal">0</span></div>
+            <input id="shadowLift" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="highlightRecovery">Highlights retten</label><span id="highlightRecoveryVal">0</span></div>
+            <input id="highlightRecovery" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="row">
+            <div class="value-row"><label for="clarity">Klarheit</label><span id="clarityVal">0</span></div>
+            <input id="clarity" type="range" min="0" max="100" value="0">
+          </div>
         </div>
       </div>
 
@@ -377,7 +393,7 @@
           <div class="button-row">
             <button id="restoreAiBtn" class="secondary">AI-Ergebnis entfernen</button>
           </div>
-          <div class="small">Lädt beim ersten Start ein Browser-Modell nach. Die AI-Version wird als neue Arbeitsquelle genutzt, danach greifen die Regler weiterhin oben drauf.</div>
+          <div class="small">Lädt beim ersten Start ein Browser-Modell nach. Die AI-Version wird als neue Arbeitsquelle genutzt, danach greifen die Regler weiterhin oben drauf. Beim ersten AI-Lauf wird automatisch ein stärkerer Polishing-Look gesetzt.</div>
         </div>
       </div>
 
@@ -466,6 +482,10 @@
       saturation: document.getElementById('saturation'),
       warmth: document.getElementById('warmth'),
       sharpness: document.getElementById('sharpness'),
+      denoise: document.getElementById('denoise'),
+      shadowLift: document.getElementById('shadowLift'),
+      highlightRecovery: document.getElementById('highlightRecovery'),
+      clarity: document.getElementById('clarity'),
       enhancerPreset: document.getElementById('enhancerPreset'),
       upscale: document.getElementById('upscale'),
       format: document.getElementById('format'),
@@ -477,7 +497,11 @@
       contrast: document.getElementById('contrastVal'),
       saturation: document.getElementById('saturationVal'),
       warmth: document.getElementById('warmthVal'),
-      sharpness: document.getElementById('sharpnessVal')
+      sharpness: document.getElementById('sharpnessVal'),
+      denoise: document.getElementById('denoiseVal'),
+      shadowLift: document.getElementById('shadowLiftVal'),
+      highlightRecovery: document.getElementById('highlightRecoveryVal'),
+      clarity: document.getElementById('clarityVal')
     };
 
     const resetBtn = document.getElementById('resetBtn');
@@ -525,7 +549,31 @@
         contrast: 100,
         saturation: 100,
         warmth: 0,
-        sharpness: 0
+        sharpness: 0,
+        denoise: 0,
+        shadowLift: 0,
+        highlightRecovery: 0,
+        clarity: 0
+      };
+    }
+
+    function recommendedAiPolish(preset) {
+      if (preset.scale >= 4) {
+        return {
+          denoise: 18,
+          shadowLift: 16,
+          highlightRecovery: 22,
+          clarity: 26,
+          sharpness: 16
+        };
+      }
+
+      return {
+        denoise: 12,
+        shadowLift: 10,
+        highlightRecovery: 14,
+        clarity: 16,
+        sharpness: 10
       };
     }
 
@@ -573,6 +621,10 @@
       controls.saturation.value = item.edit.saturation;
       controls.warmth.value = item.edit.warmth;
       controls.sharpness.value = item.edit.sharpness;
+      controls.denoise.value = item.edit.denoise;
+      controls.shadowLift.value = item.edit.shadowLift;
+      controls.highlightRecovery.value = item.edit.highlightRecovery;
+      controls.clarity.value = item.edit.clarity;
       updateLabels();
       syncActionButtons();
     }
@@ -583,6 +635,10 @@
       labels.saturation.textContent = `${controls.saturation.value}%`;
       labels.warmth.textContent = `${controls.warmth.value}`;
       labels.sharpness.textContent = `${controls.sharpness.value}`;
+      labels.denoise.textContent = `${controls.denoise.value}`;
+      labels.shadowLift.textContent = `${controls.shadowLift.value}`;
+      labels.highlightRecovery.textContent = `${controls.highlightRecovery.value}`;
+      labels.clarity.textContent = `${controls.clarity.value}`;
     }
 
     function escapeHtml(str) {
@@ -604,49 +660,128 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    function applyCanvasPostEffects(ctx, canvas, warmth, sharpness, fullPrecision) {
-      if (warmth === 0 && sharpness === 0) return;
+    function isLikelySkinTone(red, green, blue) {
+      const max = Math.max(red, green, blue);
+      const min = Math.min(red, green, blue);
+      return red > 95 && green > 40 && blue > 20 && max - min > 15 && Math.abs(red - green) > 15 && red > green && red > blue;
+    }
+
+    function applyCanvasPostEffects(ctx, canvas, edit, fullPrecision) {
+      if (
+        edit.warmth === 0 &&
+        edit.sharpness === 0 &&
+        edit.denoise === 0 &&
+        edit.shadowLift === 0 &&
+        edit.highlightRecovery === 0 &&
+        edit.clarity === 0
+      ) {
+        return;
+      }
 
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
+      const warmth = edit.warmth / 100;
+      const shadowLift = edit.shadowLift / 100;
+      const highlightRecovery = edit.highlightRecovery / 100;
 
-      if (warmth !== 0) {
-        const amount = warmth / 100;
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = clamp(data[i] + 28 * amount, 0, 255);
-          data[i + 1] = clamp(data[i + 1] + 6 * amount, 0, 255);
-          data[i + 2] = clamp(data[i + 2] - 28 * amount, 0, 255);
+      for (let i = 0; i < data.length; i += 4) {
+        let red = data[i];
+        let green = data[i + 1];
+        let blue = data[i + 2];
+        const luma = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+        const shadowMask = (1 - luma) * (1 - luma);
+        const highlightMask = luma * luma;
+
+        if (warmth !== 0) {
+          red = clamp(red + 28 * warmth, 0, 255);
+          green = clamp(green + 6 * warmth, 0, 255);
+          blue = clamp(blue - 28 * warmth, 0, 255);
+        }
+
+        if (shadowLift > 0) {
+          const lift = shadowLift * shadowMask * 58;
+          red = clamp(red + lift, 0, 255);
+          green = clamp(green + lift, 0, 255);
+          blue = clamp(blue + lift, 0, 255);
+        }
+
+        if (highlightRecovery > 0) {
+          const compression = highlightRecovery * highlightMask * 52;
+          red = clamp(red - Math.max(0, red - 160) / 95 * compression, 0, 255);
+          green = clamp(green - Math.max(0, green - 160) / 95 * compression, 0, 255);
+          blue = clamp(blue - Math.max(0, blue - 160) / 95 * compression, 0, 255);
+        }
+
+        data[i] = red;
+        data[i + 1] = green;
+        data[i + 2] = blue;
+      }
+
+      const source = new Uint8ClampedArray(data);
+      const out = ctx.createImageData(canvas.width, canvas.height);
+      const dst = out.data;
+      const w = canvas.width;
+      const h = canvas.height;
+      const denoise = edit.denoise / 100;
+      const clarity = edit.clarity / 100;
+      const sharpness = edit.sharpness / 100;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const leftX = Math.max(0, x - 1);
+          const rightX = Math.min(w - 1, x + 1);
+          const upY = Math.max(0, y - 1);
+          const downY = Math.min(h - 1, y + 1);
+          const neighbors = [
+            idx,
+            (y * w + leftX) * 4,
+            (y * w + rightX) * 4,
+            (upY * w + x) * 4,
+            (downY * w + x) * 4
+          ];
+          const avgRed = neighbors.reduce((sum, offset) => sum + source[offset], 0) / neighbors.length;
+          const avgGreen = neighbors.reduce((sum, offset) => sum + source[offset + 1], 0) / neighbors.length;
+          const avgBlue = neighbors.reduce((sum, offset) => sum + source[offset + 2], 0) / neighbors.length;
+          const avgLuma = 0.2126 * avgRed + 0.7152 * avgGreen + 0.0722 * avgBlue;
+          const currentLuma = 0.2126 * source[idx] + 0.7152 * source[idx + 1] + 0.0722 * source[idx + 2];
+          const edge = Math.abs(currentLuma - avgLuma);
+          const denoiseBlend = denoise * clamp(1 - edge / 32, 0, 1) * (fullPrecision ? 0.78 : 0.62);
+          const localBoost = clarity * (fullPrecision ? 1.15 : 0.9);
+          const detailBoost = sharpness * (fullPrecision ? 1.05 : 0.78);
+          const skinMask = isLikelySkinTone(source[idx], source[idx + 1], source[idx + 2]) ? 0.42 : 1;
+          const channels = [
+            { current: source[idx], avg: avgRed },
+            { current: source[idx + 1], avg: avgGreen },
+            { current: source[idx + 2], avg: avgBlue }
+          ];
+
+          channels.forEach((channel, channelIndex) => {
+            const denoised = channel.current * (1 - denoiseBlend) + channel.avg * denoiseBlend;
+            const localContrast = (channel.current - channel.avg) * localBoost;
+            const smartSharpen = (denoised - channel.avg) * detailBoost * skinMask;
+            dst[idx + channelIndex] = clamp(denoised + localContrast + smartSharpen, 0, 255);
+          });
+
+          dst[idx + 3] = source[idx + 3];
         }
       }
-      ctx.putImageData(imgData, 0, 0);
 
-      if (sharpness > 0) {
-        const strength = (sharpness / 100) * (fullPrecision ? 1.2 : 0.8);
-        const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const out = ctx.createImageData(src.width, src.height);
-        const s = src.data;
-        const d = out.data;
-        const w = src.width;
-        const h = src.height;
-        const centerWeight = 1 + strength * 4;
-        const sideWeight = -strength;
+      ctx.putImageData(out, 0, 0);
+    }
 
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const idx = (y * w + x) * 4;
-            for (let c = 0; c < 3; c++) {
-              const center = s[idx + c] * centerWeight;
-              const left = s[((y * w + Math.max(0, x - 1)) * 4) + c] * sideWeight;
-              const right = s[((y * w + Math.min(w - 1, x + 1)) * 4) + c] * sideWeight;
-              const up = s[((Math.max(0, y - 1) * w + x) * 4) + c] * sideWeight;
-              const down = s[((Math.min(h - 1, y + 1) * w + x) * 4) + c] * sideWeight;
-              d[idx + c] = clamp(center + left + right + up + down, 0, 255);
-            }
-            d[idx + 3] = s[idx + 3];
-          }
-        }
-        ctx.putImageData(out, 0, 0);
-      }
+    function applyRecommendedAiPolish(item, preset) {
+      if (item.aiPolishSeeded) return;
+      const polish = recommendedAiPolish(preset);
+      item.edit = {
+        ...item.edit,
+        denoise: polish.denoise,
+        shadowLift: polish.shadowLift,
+        highlightRecovery: polish.highlightRecovery,
+        clarity: polish.clarity,
+        sharpness: Math.max(item.edit.sharpness, polish.sharpness)
+      };
+      item.aiPolishSeeded = true;
     }
 
     function drawOriginal(item) {
@@ -666,9 +801,7 @@
       afterCtx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
       afterCtx.drawImage(source, dx, dy, dw, dh);
       afterCtx.restore();
-      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
-        applyCanvasPostEffects(afterCtx, afterCanvas, item.edit.warmth, item.edit.sharpness, false);
-      }
+      applyCanvasPostEffects(afterCtx, afterCanvas, item.edit, false);
     }
 
     function drawAll() {
@@ -760,6 +893,10 @@
       item.edit.saturation = Number(controls.saturation.value);
       item.edit.warmth = Number(controls.warmth.value);
       item.edit.sharpness = Number(controls.sharpness.value);
+      item.edit.denoise = Number(controls.denoise.value);
+      item.edit.shadowLift = Number(controls.shadowLift.value);
+      item.edit.highlightRecovery = Number(controls.highlightRecovery.value);
+      item.edit.clarity = Number(controls.clarity.value);
       updateLabels();
       drawAll();
     }
@@ -934,6 +1071,7 @@
               padding: preset.padding
             });
             await applyAiResult(item, result);
+            applyRecommendedAiPolish(item, preset);
             successCount += 1;
           } catch (error) {
             console.error('AI-Enhancer fehlgeschlagen:', error);
@@ -987,9 +1125,7 @@
       ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
       ctx.drawImage(source, 0, 0, outW, outH);
       ctx.restore();
-      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
-        applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
-      }
+      applyCanvasPostEffects(ctx, out, item.edit, true);
 
       return { canvas: out, upscale };
     }
@@ -1031,7 +1167,7 @@
       setActive(thumb.dataset.id);
     });
 
-    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness].forEach(el => {
+    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.denoise, controls.shadowLift, controls.highlightRecovery, controls.clarity].forEach(el => {
       el.addEventListener('input', applyControlsToActive);
       el.addEventListener('change', applyControlsToActive);
     });
