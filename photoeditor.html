@@ -666,6 +666,14 @@
       font-size:.8rem;
       border-radius:10px;
     }
+
+    .alpha-name{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      font-size:.85rem;
+    }
   </style>
 </head>
 <body>
@@ -1462,7 +1470,7 @@
 
         const head = document.createElement('div');
         head.className = 'alpha-card-head';
-        head.innerHTML = `<div class="name" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem;">${escapeHtml(item.name)}</div><div class="case-badge ${badgeClass}">${escapeHtml(badgeLabel)}</div>`;
+        head.innerHTML = `<div class="name alpha-name">${escapeHtml(item.name)}</div><div class="case-badge ${badgeClass}">${escapeHtml(badgeLabel)}</div>`;
 
         const meta = document.createElement('div');
         meta.className = 'alpha-meta';
@@ -3204,12 +3212,18 @@
 
     alphabetControls.lowercaseRatio.addEventListener('input', () => {
       alphaLabels.lowercaseRatio.textContent = `${alphabetControls.lowercaseRatio.value} %`;
-      if (state.view === 'typografie') renderAlphabetGrid();
+      clearTimeout(alphabetControls.lowercaseRatio._debounce);
+      alphabetControls.lowercaseRatio._debounce = setTimeout(() => {
+        if (state.view === 'typografie') renderAlphabetGrid();
+      }, 80);
     });
 
     [alphabetControls.capHeight, alphabetControls.topPadding, alphabetControls.bottomPadding, alphabetControls.sidePadding].forEach(el => {
       el.addEventListener('input', () => {
-        if (state.view === 'typografie') renderAlphabetGrid();
+        clearTimeout(el._debounce);
+        el._debounce = setTimeout(() => {
+          if (state.view === 'typografie') renderAlphabetGrid();
+        }, 80);
       });
     });
 
