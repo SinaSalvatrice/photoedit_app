@@ -327,10 +327,27 @@
       z-index: 2;
     }
 
+    .showcase-item.swap-target {
+      box-shadow: 0 0 0 2px rgba(110, 161, 255, 0.85), 0 22px 48px rgba(0, 0, 0, 0.22);
+      border-color: rgba(110, 161, 255, 0.8);
+    }
+
     .showcase-item canvas {
       display: block;
       width: 100%;
       background: transparent;
+    }
+
+    .showcase-item.is-empty {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+        rgba(14, 19, 27, 0.72);
+      border-style: dashed;
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .showcase-item.is-empty .showcase-label {
+      color: #c2cedd;
     }
 
     .showcase-label {
@@ -442,14 +459,51 @@
             </select>
           </div>
 
+          <div class="row">
+            <label for="showcaseContentFit">Bildgroesse berechnen nach</label>
+            <select id="showcaseContentFit">
+              <option value="frame">Gesamter Bildrahmen</option>
+              <option value="visible">Nur sichtbaren Pixeln</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label for="showcaseCaseMode">Alphabet-Relation</label>
+            <select id="showcaseCaseMode">
+              <option value="none">Keine Sonderbehandlung</option>
+              <option value="filename">Aus Dateinamen ableiten</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="showcaseLowercaseRatio">Kleinbuchstabenhoehe</label><span id="showcaseLowercaseRatioVal">72 %</span></div>
+            <input id="showcaseLowercaseRatio" type="range" min="40" max="100" value="72" />
+          </div>
+
           <div class="button-row">
             <button id="showcasePopulateBtn">Raster fuellen</button>
             <button id="showcaseArrangeBtn" class="secondary">Automatisch ausrichten</button>
             <button id="showcaseExportBtn" class="secondary">Als PNG exportieren</button>
           </div>
 
+          <div class="button-row">
+            <select id="showcaseEmptyCount" style="max-width:120px;">
+              <option value="1">1 leer</option>
+              <option value="2">2 leer</option>
+              <option value="3">3 leer</option>
+              <option value="4">4 leer</option>
+              <option value="5">5 leer</option>
+              <option value="6">6 leer</option>
+            </select>
+            <button id="showcaseAddEmptyBtn" class="secondary">Leere Kachel hinzufuegen</button>
+          </div>
+
           <div class="hint">
             Die Kacheln sind absichtlich etwas breiter als hoch, damit einzelne Motive weniger vertikal gestreckt wirken. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
+          </div>
+
+          <div class="hint">
+            Fuer Alphabete ist <strong>Nur sichtbare Pixel</strong> gedacht: transparente Raender werden ignoriert. Mit <strong>Aus Dateinamen ableiten</strong> werden Dateien wie <strong>A.png</strong> und <strong>a.png</strong> automatisch als Gross- und Kleinbuchstaben behandelt.
           </div>
         </div>
       </div>
@@ -512,12 +566,17 @@
       rows: document.getElementById('showcaseRows'),
       gap: document.getElementById('showcaseGap'),
       tileWidth: document.getElementById('showcaseTileWidth'),
-      bg: document.getElementById('showcaseBg')
+      bg: document.getElementById('showcaseBg'),
+      contentFit: document.getElementById('showcaseContentFit'),
+      caseMode: document.getElementById('showcaseCaseMode'),
+      lowercaseRatio: document.getElementById('showcaseLowercaseRatio'),
+      emptyCount: document.getElementById('showcaseEmptyCount')
     };
 
     const labels = {
       gap: document.getElementById('showcaseGapVal'),
-      tileWidth: document.getElementById('showcaseTileWidthVal')
+      tileWidth: document.getElementById('showcaseTileWidthVal'),
+      lowercaseRatio: document.getElementById('showcaseLowercaseRatioVal')
     };
 
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -526,6 +585,7 @@
     const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
+    const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
 
     const state = {
       items: [],
@@ -535,7 +595,8 @@
         dragging: null,
         boardPadding: 28,
         tileAspect: 0.84,
-        labelHeight: 34
+        labelHeight: 34,
+        emptyCounter: 0
       }
     };
 
@@ -550,6 +611,7 @@
     function updateLabels() {
       labels.gap.textContent = `${controls.gap.value} px`;
       labels.tileWidth.textContent = `${controls.tileWidth.value} px`;
+      labels.lowercaseRatio.textContent = `${controls.lowercaseRatio.value} %`;
     }
 
     function updateStats() {
@@ -570,6 +632,24 @@
       return state.items.find(item => item.id === sourceId) || null;
     }
 
+    function isEmptyShowcaseEntry(entry) {
+      return Boolean(entry?.isEmpty);
+    }
+
+    function createEmptyShowcaseEntry(metrics = getShowcaseMetrics()) {
+      state.showcase.emptyCounter += 1;
+      return {
+        id: crypto.randomUUID(),
+        sourceId: null,
+        isEmpty: true,
+        name: `Leer ${state.showcase.emptyCounter}`,
+        x: 0,
+        y: 0,
+        width: metrics.tileWidth,
+        height: metrics.tileHeight
+      };
+    }
+
     function getShowcaseMetrics() {
       const tileWidth = clamp(Number(controls.tileWidth.value) || 260, 160, 420);
       return {
@@ -586,7 +666,102 @@
 
     function sanitizeShowcaseItems() {
       const validIds = new Set(state.items.map(item => item.id));
-      state.showcase.items = state.showcase.items.filter(item => validIds.has(item.sourceId));
+      state.showcase.items = state.showcase.items.filter(item => item.isEmpty || validIds.has(item.sourceId));
+    }
+
+    function createOffscreenCanvas(width, height) {
+      if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function getAlphaBounds(img, alphaThreshold = 8) {
+      const canvas = createOffscreenCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+
+      const data = ctx.getImageData(0, 0, img.width, img.height).data;
+      let minX = img.width;
+      let minY = img.height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const alpha = data[((y * img.width) + x) * 4 + 3];
+          if (alpha <= alphaThreshold) {
+            continue;
+          }
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return { x: 0, y: 0, width: img.width, height: img.height };
+      }
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    function detectCaseGroup(name) {
+      const base = name.replace(/\.[^.]+$/, '').trim();
+      const marker = Array.from(base).find(char => char.toLowerCase() !== char.toUpperCase());
+      if (!marker) {
+        return 'neutral';
+      }
+      return marker === marker.toUpperCase() ? 'uppercase' : 'lowercase';
+    }
+
+    function getSourceBounds(item) {
+      return controls.contentFit.value === 'visible'
+        ? item.alphaBounds
+        : item.fullBounds;
+    }
+
+    function getCaseScale(item) {
+      if (controls.caseMode.value !== 'filename') {
+        return 1;
+      }
+      return item.caseGroup === 'lowercase'
+        ? clamp((Number(controls.lowercaseRatio.value) || 72) / 100, 0.4, 1)
+        : 1;
+    }
+
+    function getPreviewPlacement(item, width, height) {
+      const bounds = getSourceBounds(item);
+      const caseScale = getCaseScale(item);
+      const targetHeight = height * caseScale;
+      const scale = Math.min(width / bounds.width, targetHeight / bounds.height);
+      const drawWidth = bounds.width * scale;
+      const drawHeight = bounds.height * scale;
+      const x = (width - drawWidth) / 2;
+      const y = controls.caseMode.value === 'filename'
+        ? height - drawHeight
+        : (height - drawHeight) / 2;
+
+      return {
+        sourceX: bounds.x,
+        sourceY: bounds.y,
+        sourceWidth: bounds.width,
+        sourceHeight: bounds.height,
+        x,
+        y,
+        width: drawWidth,
+        height: drawHeight
+      };
     }
 
     function getContainedPlacement(img, width, height) {
@@ -607,8 +782,18 @@
       ctx.fillStyle = '#0b1016';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const placement = getContainedPlacement(item.img, canvas.width, canvas.height);
-      ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
+      const placement = getPreviewPlacement(item, canvas.width, canvas.height);
+      ctx.drawImage(
+        item.img,
+        placement.sourceX,
+        placement.sourceY,
+        placement.sourceWidth,
+        placement.sourceHeight,
+        placement.x,
+        placement.y,
+        placement.width,
+        placement.height
+      );
     }
 
     function renderThumbs() {
@@ -638,7 +823,12 @@
         preview.alt = item.name;
 
         const meta = document.createElement('div');
-        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px</div>`;
+        const caseLabel = item.caseGroup === 'uppercase'
+          ? 'Gross'
+          : item.caseGroup === 'lowercase'
+            ? 'Klein'
+            : 'Neutral';
+        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px • ${caseLabel}</div>`;
 
         card.appendChild(checkbox);
         card.appendChild(preview);
@@ -679,11 +869,15 @@
       );
 
       loaded.forEach(({ file, img }) => {
+        const fullBounds = { x: 0, y: 0, width: img.width, height: img.height };
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
           img,
-          selected: true
+          selected: true,
+          fullBounds,
+          alphaBounds: getAlphaBounds(img),
+          caseGroup: detectCaseGroup(file.name)
         });
       });
 
@@ -752,13 +946,34 @@
     }
 
     function renderShowcaseCard(entry, canvas) {
+      canvas.width = Math.max(1, Math.round(entry.width * state.pixelRatio));
+      canvas.height = Math.max(1, Math.round(entry.height * state.pixelRatio));
+
+      if (isEmptyShowcaseEntry(entry)) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#101720';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'rgba(194, 206, 221, 0.42)';
+        ctx.lineWidth = Math.max(2, canvas.width * 0.008);
+        ctx.setLineDash([12, 10]);
+        ctx.strokeRect(ctx.lineWidth, ctx.lineWidth, canvas.width - ctx.lineWidth * 2, canvas.height - ctx.lineWidth * 2);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(194, 206, 221, 0.85)';
+        ctx.font = `${Math.max(18, Math.round(canvas.width * 0.08))}px Segoe UI, Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', canvas.width / 2, canvas.height / 2 - 8);
+        ctx.font = `${Math.max(12, Math.round(canvas.width * 0.032))}px Segoe UI, Arial, sans-serif`;
+        ctx.fillText('Leer', canvas.width / 2, canvas.height / 2 + 28);
+        return;
+      }
+
       const item = showcaseItemById(entry.sourceId);
       if (!item) {
         return;
       }
 
-      canvas.width = Math.max(1, Math.round(entry.width * state.pixelRatio));
-      canvas.height = Math.max(1, Math.round(entry.height * state.pixelRatio));
       drawPreview(item, canvas);
     }
 
@@ -783,13 +998,13 @@
       let maxBottom = 0;
 
       state.showcase.items.forEach(entry => {
-        const item = showcaseItemById(entry.sourceId);
-        if (!item) {
+        const item = isEmptyShowcaseEntry(entry) ? null : showcaseItemById(entry.sourceId);
+        if (!item && !isEmptyShowcaseEntry(entry)) {
           return;
         }
 
         const card = document.createElement('div');
-        card.className = 'showcase-item';
+        card.className = `showcase-item${isEmptyShowcaseEntry(entry) ? ' is-empty' : ''}`;
         card.dataset.showcaseId = entry.id;
         card.style.left = `${entry.x}px`;
         card.style.top = `${entry.y}px`;
@@ -801,7 +1016,7 @@
 
         const label = document.createElement('div');
         label.className = 'showcase-label';
-        label.textContent = item.name;
+  label.textContent = isEmptyShowcaseEntry(entry) ? entry.name : item.name;
 
         card.appendChild(canvas);
         card.appendChild(label);
@@ -863,6 +1078,10 @@
       }
 
       state.showcase.items.forEach(entry => {
+        if (isEmptyShowcaseEntry(entry)) {
+          return;
+        }
+
         const item = showcaseItemById(entry.sourceId);
         if (!item) {
           return;
@@ -883,6 +1102,62 @@
 
       downloadCanvas(out, 'showcase-layout', 'image/png', 1);
       setStatus(`Showcase als PNG exportiert (${state.showcase.items.length} Bilder)`);
+    }
+
+    function addEmptyTiles() {
+      const count = clamp(Number(controls.emptyCount.value) || 1, 1, 24);
+      const metrics = getShowcaseMetrics();
+      for (let index = 0; index < count; index += 1) {
+        state.showcase.items.push(createEmptyShowcaseEntry(metrics));
+      }
+
+      autoArrangeShowcase(false);
+      updateStats();
+      setStatus(`${count} leere Kachel${count === 1 ? '' : 'n'} hinzugefuegt`);
+    }
+
+    function clearSwapTarget() {
+      if (!state.showcase.dragging?.swapTargetId) {
+        return;
+      }
+
+      const previousTarget = showcaseStageInner.querySelector(`[data-showcase-id="${state.showcase.dragging.swapTargetId}"]`);
+      previousTarget?.classList.remove('swap-target');
+      state.showcase.dragging.swapTargetId = null;
+    }
+
+    function findSwapTarget(draggingEntry) {
+      const centerX = draggingEntry.x + draggingEntry.width / 2;
+      const centerY = draggingEntry.y + draggingEntry.height / 2;
+
+      return state.showcase.items.find(entry => {
+        if (entry.id === draggingEntry.id) {
+          return false;
+        }
+
+        return centerX >= entry.x
+          && centerX <= entry.x + entry.width
+          && centerY >= entry.y
+          && centerY <= entry.y + entry.height;
+      }) || null;
+    }
+
+    function updateSwapTarget(draggingEntry) {
+      const nextTarget = findSwapTarget(draggingEntry);
+      const nextTargetId = nextTarget?.id || null;
+
+      if (state.showcase.dragging?.swapTargetId === nextTargetId) {
+        return nextTarget;
+      }
+
+      clearSwapTarget();
+      if (nextTargetId) {
+        const targetCard = showcaseStageInner.querySelector(`[data-showcase-id="${nextTargetId}"]`);
+        targetCard?.classList.add('swap-target');
+        state.showcase.dragging.swapTargetId = nextTargetId;
+      }
+
+      return nextTarget;
     }
 
     selectAllBtn.addEventListener('click', () => {
@@ -919,11 +1194,15 @@
       }
     });
 
-    [controls.gap, controls.tileWidth].forEach(control => {
+    [controls.gap, controls.tileWidth, controls.lowercaseRatio].forEach(control => {
       control.addEventListener('input', () => {
         updateLabels();
         if (state.showcase.items.length) {
-          autoArrangeShowcase(false);
+          if (control === controls.gap || control === controls.tileWidth) {
+            autoArrangeShowcase(false);
+          } else {
+            renderShowcase();
+          }
         }
       });
     });
@@ -934,9 +1213,18 @@
       }
     }));
 
+    [controls.contentFit, controls.caseMode, controls.bg].forEach(control => {
+      control.addEventListener('change', () => {
+        if (state.showcase.items.length) {
+          renderShowcase();
+        }
+      });
+    });
+
     showcasePopulateBtn.addEventListener('click', populateShowcase);
     showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
+    showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
 
     showcaseStage.addEventListener('pointerdown', event => {
       const card = event.target.closest('.showcase-item');
@@ -956,7 +1244,8 @@
         startY: event.clientY,
         left: entry.x,
         top: entry.y,
-        card
+        card,
+        swapTargetId: null
       };
 
       card.classList.add('dragging');
@@ -978,6 +1267,7 @@
       entry.y = Math.max(0, dragging.top + (event.clientY - dragging.startY));
       dragging.card.style.left = `${entry.x}px`;
       dragging.card.style.top = `${entry.y}px`;
+      updateSwapTarget(entry);
 
       const metrics = getShowcaseMetrics();
       showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.width + metrics.boardPadding)}px`;
@@ -989,11 +1279,30 @@
         return;
       }
 
+      const dragging = state.showcase.dragging;
+      const draggedEntry = state.showcase.items.find(item => item.id === dragging.id);
+      const targetEntry = dragging.swapTargetId
+        ? state.showcase.items.find(item => item.id === dragging.swapTargetId)
+        : null;
+
+      if (draggedEntry && targetEntry) {
+        const originalX = dragging.left;
+        const originalY = dragging.top;
+        draggedEntry.x = targetEntry.x;
+        draggedEntry.y = targetEntry.y;
+        targetEntry.x = originalX;
+        targetEntry.y = originalY;
+        renderShowcase();
+        setStatus('Positionen getauscht');
+      }
+
+      clearSwapTarget();
+
       try {
-        state.showcase.dragging.card.releasePointerCapture(event.pointerId);
+        dragging.card.releasePointerCapture(event.pointerId);
       } catch (error) {}
 
-      state.showcase.dragging.card.classList.remove('dragging');
+      dragging.card.classList.remove('dragging');
       state.showcase.dragging = null;
     }
 

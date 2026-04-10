@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nur Hintergrund entfernen</title>
+  <style>
+    :root {
+      --bg: #0c1117;
+      --panel: rgba(18, 24, 32, 0.96);
+      --panel-2: #1b2430;
+      --line: #334255;
+      --text: #edf3f9;
+      --muted: #aab6c5;
+      --accent: #73a5ff;
+      --accent-2: #4f79cb;
+      --good: #7bd88f;
+      --danger: #ff8e8e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(115, 165, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, #091018 0%, #0e141c 100%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1680px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 1.18rem; margin-bottom: 8px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.48;
+      margin-bottom: 14px;
+    }
+
+    .controls,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row { display: grid; gap: 7px; }
+
+    label {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    input[type="file"],
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed #4a596d;
+      color: var(--muted);
+    }
+
+    select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #39485b;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #4263a4;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.94rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      border-color: #3b4a5f;
+      color: var(--text);
+    }
+
+    button.danger {
+      background: rgba(255, 142, 142, 0.1);
+      border-color: rgba(255, 142, 142, 0.35);
+      color: #ffd4d4;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hint {
+      border: 1px solid rgba(115, 165, 255, 0.2);
+      background: rgba(115, 165, 255, 0.08);
+      color: #dbe8ff;
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+
+    .error-banner {
+      margin: 0 18px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 142, 142, 0.35);
+      background: rgba(255, 142, 142, 0.12);
+      color: #ffd7d7;
+      border-radius: 16px;
+      line-height: 1.45;
+    }
+
+    .error-banner.hidden { display: none; }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      min-height: calc(100vh - 32px);
+    }
+
+    .topbar {
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .status {
+      border: 1px solid #354458;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 120px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid #3b495d;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .grid-wrap { padding: 18px; }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid #324053;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .card.selected {
+      border-color: var(--accent);
+      background: rgba(115, 165, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(115, 165, 255, 0.22);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-head input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      margin-top: 2px;
+      flex: 0 0 auto;
+    }
+
+    .name {
+      font-size: 0.92rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      line-height: 1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .pill.good {
+      color: #daf6e0;
+      border-color: rgba(123, 216, 143, 0.35);
+      background: rgba(123, 216, 143, 0.12);
+    }
+
+    .pill.warn {
+      color: #ffe6b4;
+      border-color: rgba(255, 196, 0, 0.28);
+      background: rgba(255, 196, 0, 0.12);
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .viewer {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .viewer-title {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .preview-box {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #374255;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        #0b1016;
+      background-size: 22px 22px;
+      background-position: 0 0, 11px 11px;
+    }
+
+    .preview-box::before {
+      content: "";
+      display: block;
+      padding-top: 100%;
+    }
+
+    .preview-box img,
+    .preview-box .empty-state {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .preview-box img {
+      object-fit: contain;
+      display: block;
+    }
+
+    .preview-box .empty-state {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .card-foot {
+      padding: 0 12px 12px 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .mini-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mini-controls button {
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      border-radius: 10px;
+    }
+
+    .empty {
+      padding: 34px 18px;
+      border: 1px dashed #4a596d;
+      border-radius: 18px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1160px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 780px) {
+      body { padding: 12px; }
+      .compare { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+      .image-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Background Remover</h1>
+        <p class="sub">Entfernt Hintergruende direkt im Browser und behaelt die Originalaufloesung. Exportiert wird als PNG ohne zusaetzliche Qualitaetsverluste.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Keine markieren</button>
+            <button id="clearBtn" class="danger">Alles entfernen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Freistellung</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="targetMode">Anwenden auf</label>
+            <select id="targetMode">
+              <option value="selected">Markierte Bilder</option>
+              <option value="all">Alle Bilder</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label for="cutoutMode">Freistellmodus</label>
+            <select id="cutoutMode">
+              <option value="fast">Schnell</option>
+              <option value="standard" selected>Standard</option>
+              <option value="strict-symbols">Streng fuer Logos & Buchstaben</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="removeBgBtn">Hintergrund entfernen</button>
+            <button id="restoreBtn" class="secondary">Original wiederherstellen</button>
+          </div>
+
+          <div class="hint">
+            Qualitaet bleibt erhalten, weil das Modell mit dem Originalbild arbeitet und das Ergebnis als PNG mit denselben Pixelmassen gespeichert wird. Die Vorschau ist nur eine verkleinerte Anzeige.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <div class="button-row">
+          <button id="downloadSelectedBtn">Markierte exportieren</button>
+          <button id="downloadAllBtn" class="secondary">Alle exportieren</button>
+        </div>
+        <div class="hint">
+          Exportiert immer das freigestellte PNG-Ergebnis direkt aus dem erzeugten Blob. Kein erneutes JPEG-Rendering, kein Downscaling.
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="topbar">
+        <div>
+          <h2>Freistellungs-Vorschau</h2>
+          <p class="sub" style="margin: 6px 0 0 0;">Links Original, rechts das freigestellte Ergebnis. Pro Karte bleibt die originale Pixelgroesse sichtbar.</p>
+
+          <div class="summary">
+            <div class="stat">
+              <div class="k">Bilder</div>
+              <div id="statCount" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Markiert</div>
+              <div id="statSelected" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Fertig</div>
+              <div id="statProcessed" class="v">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div id="errorBanner" class="error-banner hidden"></div>
+
+      <div class="grid-wrap">
+        <div id="imageGrid" class="image-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const imageGrid = document.getElementById('imageGrid');
+    const statusText = document.getElementById('statusText');
+    const errorBanner = document.getElementById('errorBanner');
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statProcessed = document.getElementById('statProcessed');
+
+    const controls = {
+      targetMode: document.getElementById('targetMode'),
+      cutoutMode: document.getElementById('cutoutMode')
+    };
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const removeBgBtn = document.getElementById('removeBgBtn');
+    const restoreBtn = document.getElementById('restoreBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+
+    const state = {
+      items: [],
+      bgRemoval: {
+        removeBackground: null,
+        importPromise: null,
+        hasLoadedModel: false
+      }
+    };
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function setUserError(message) {
+      errorBanner.textContent = message;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearUserError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.add('hidden');
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function targetItems() {
+      return controls.targetMode.value === 'all' ? state.items : selectedItems();
+    }
+
+    function normalizeProgressPercent(current, total) {
+      if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+        return 0;
+      }
+      if (current <= 1 && total <= 1) {
+        return Math.round(clamp(current, 0, 1) * 100);
+      }
+      return Math.round(clamp(current / total, 0, 1) * 100);
+    }
+
+    function createOffscreenCanvas(width, height) {
+      if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function loadImageElement(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'));
+        img.src = src;
+      });
+    }
+
+    function releaseObjectUrl(url) {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function releaseItemUrls(item) {
+      releaseObjectUrl(item.resultObjectUrl);
+      item.resultObjectUrl = null;
+    }
+
+    function setItemProcessing(item, active, label = '') {
+      item.processing = active;
+      item.processingLabel = active ? label : '';
+    }
+
+    function dilateMask(mask, width, height, radius) {
+      const out = new Uint8Array(mask.length);
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          let on = 0;
+          for (let dy = -radius; dy <= radius && !on; dy += 1) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= height) continue;
+            for (let dx = -radius; dx <= radius; dx += 1) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= width) continue;
+              if (mask[yy * width + xx]) {
+                on = 1;
+                break;
+              }
+            }
+          }
+          out[y * width + x] = on;
+        }
+      }
+      return out;
+    }
+
+    function erodeMask(mask, width, height, radius) {
+      const out = new Uint8Array(mask.length);
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          let on = 1;
+          for (let dy = -radius; dy <= radius && on; dy += 1) {
+            const yy = y + dy;
+            if (yy < 0 || yy >= height) {
+              on = 0;
+              break;
+            }
+            for (let dx = -radius; dx <= radius; dx += 1) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= width || !mask[yy * width + xx]) {
+                on = 0;
+                break;
+              }
+            }
+          }
+          out[y * width + x] = on;
+        }
+      }
+      return out;
+    }
+
+    function fillInnerMaskHoles(mask, width, height) {
+      const visited = new Uint8Array(mask.length);
+      const stack = [];
+
+      function pushIfBackground(x, y) {
+        if (x < 0 || y < 0 || x >= width || y >= height) return;
+        const idx = y * width + x;
+        if (visited[idx] || mask[idx]) return;
+        visited[idx] = 1;
+        stack.push(idx);
+      }
+
+      for (let x = 0; x < width; x += 1) {
+        pushIfBackground(x, 0);
+        pushIfBackground(x, height - 1);
+      }
+      for (let y = 0; y < height; y += 1) {
+        pushIfBackground(0, y);
+        pushIfBackground(width - 1, y);
+      }
+
+      while (stack.length) {
+        const idx = stack.pop();
+        const x = idx % width;
+        const y = Math.floor(idx / width);
+        pushIfBackground(x - 1, y);
+        pushIfBackground(x + 1, y);
+        pushIfBackground(x, y - 1);
+        pushIfBackground(x, y + 1);
+      }
+
+      const out = new Uint8Array(mask);
+      for (let i = 0; i < out.length; i += 1) {
+        if (!out[i] && !visited[i]) {
+          out[i] = 1;
+        }
+      }
+      return out;
+    }
+
+    function keepLargestConnectedComponent(mask, width, height) {
+      const visited = new Uint8Array(mask.length);
+      let largestComponent = null;
+      let largestSize = 0;
+
+      for (let start = 0; start < mask.length; start += 1) {
+        if (!mask[start] || visited[start]) {
+          continue;
+        }
+
+        const stack = [start];
+        const component = [];
+        visited[start] = 1;
+
+        while (stack.length) {
+          const idx = stack.pop();
+          component.push(idx);
+
+          const x = idx % width;
+          const y = Math.floor(idx / width);
+          const neighbors = [idx - 1, idx + 1, idx - width, idx + width];
+
+          if (x === 0) neighbors[0] = -1;
+          if (x === width - 1) neighbors[1] = -1;
+          if (y === 0) neighbors[2] = -1;
+          if (y === height - 1) neighbors[3] = -1;
+
+          for (const next of neighbors) {
+            if (next < 0 || visited[next] || !mask[next]) continue;
+            visited[next] = 1;
+            stack.push(next);
+          }
+        }
+
+        if (component.length > largestSize) {
+          largestSize = component.length;
+          largestComponent = component;
+        }
+      }
+
+      if (!largestComponent) {
+        return mask;
+      }
+
+      const out = new Uint8Array(mask.length);
+      for (const idx of largestComponent) {
+        out[idx] = 1;
+      }
+      return out;
+    }
+
+    function getCutoutRefineOptions() {
+      if (controls.cutoutMode.value === 'fast') {
+        return {
+          modeLabel: 'Schnell',
+          model: 'isnet_quint8',
+          postProcess: false,
+          alphaThreshold: 16,
+          closeRadius: 0,
+          finalErodeRadius: 0,
+          finalDilateRadius: 0,
+          keepLargestBeforeFill: false,
+          keepLargestAfterFill: false
+        };
+      }
+
+      if (controls.cutoutMode.value === 'strict-symbols') {
+        return {
+          modeLabel: 'Streng',
+          model: 'isnet_quint8',
+          postProcess: true,
+          alphaThreshold: 42,
+          closeRadius: 1,
+          finalErodeRadius: 1,
+          finalDilateRadius: 0,
+          keepLargestBeforeFill: true,
+          keepLargestAfterFill: true
+        };
+      }
+
+      return {
+        modeLabel: 'Standard',
+        model: 'isnet_quint8',
+        postProcess: true,
+        alphaThreshold: 20,
+        closeRadius: 1,
+        finalErodeRadius: 0,
+        finalDilateRadius: 0,
+        keepLargestBeforeFill: true,
+        keepLargestAfterFill: false
+      };
+    }
+
+    async function refineBackgroundRemovalBlob(blob, options = getCutoutRefineOptions()) {
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const img = await loadImageElement(objectUrl);
+        const canvas = createOffscreenCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const data = imageData.data;
+        const mask = new Uint8Array(img.width * img.height);
+
+        for (let i = 0; i < mask.length; i += 1) {
+          mask[i] = data[i * 4 + 3] > options.alphaThreshold ? 1 : 0;
+        }
+
+        let refined = erodeMask(
+          dilateMask(mask, img.width, img.height, options.closeRadius),
+          img.width,
+          img.height,
+          options.closeRadius
+        );
+
+        if (options.keepLargestBeforeFill) {
+          refined = keepLargestConnectedComponent(refined, img.width, img.height);
+        }
+
+        refined = fillInnerMaskHoles(refined, img.width, img.height);
+
+        if (options.keepLargestAfterFill) {
+          refined = keepLargestConnectedComponent(refined, img.width, img.height);
+        }
+
+        if (options.finalErodeRadius > 0) {
+          refined = erodeMask(refined, img.width, img.height, options.finalErodeRadius);
+        }
+
+        if (options.finalDilateRadius > 0) {
+          refined = dilateMask(refined, img.width, img.height, options.finalDilateRadius);
+        }
+
+        for (let i = 0; i < mask.length; i += 1) {
+          const alphaIndex = i * 4 + 3;
+          if (refined[i]) {
+            if (data[alphaIndex] < 32) {
+              data[alphaIndex] = 255;
+            }
+          } else {
+            data[alphaIndex] = 0;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        return await new Promise(resolve => {
+          canvas.convertToBlob
+            ? resolve(canvas.convertToBlob({ type: 'image/png' }))
+            : resolve(new Promise(done => canvas.toBlob(done, 'image/png')));
+        });
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    async function getBackgroundRemovalApi() {
+      if (state.bgRemoval.removeBackground) {
+        return state.bgRemoval.removeBackground;
+      }
+
+      if (!state.bgRemoval.importPromise) {
+        setStatus('Lade KI-Freistellung...');
+        state.bgRemoval.importPromise = import('https://esm.sh/@imgly/background-removal@1.7.0')
+          .then(mod => mod.default || mod.removeBackground)
+          .then(removeBackground => {
+            if (typeof removeBackground !== 'function') {
+              throw new Error('Freistellungsmodul ungueltig geladen');
+            }
+            state.bgRemoval.removeBackground = removeBackground;
+            return removeBackground;
+          })
+          .catch(error => {
+            state.bgRemoval.importPromise = null;
+            setUserError('KI-Freistellung konnte nicht geladen werden. Bitte Internetverbindung und Modell-CDN pruefen.');
+            throw error;
+          });
+      }
+
+      return state.bgRemoval.importPromise;
+    }
+
+    function createBackgroundRemovalConfig(itemName, index, total) {
+      const refineOptions = getCutoutRefineOptions();
+      return {
+        model: refineOptions.model,
+        output: {
+          format: 'image/png',
+          quality: 1,
+          type: 'foreground'
+        },
+        progress: (key, current, all) => {
+          const phasePercent = normalizeProgressPercent(current, all || 1);
+          const overallPercent = Math.round((((index - 1) + (phasePercent / 100)) / Math.max(total, 1)) * 100);
+          setStatus(`Freistellen ${overallPercent}% - Bild ${index}/${total}: ${itemName}`);
+        }
+      };
+    }
+
+    function updateStats() {
+      statCount.textContent = String(state.items.length);
+      statSelected.textContent = String(selectedItems().length);
+      statProcessed.textContent = String(state.items.filter(item => item.resultBlob).length);
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatPixels(item) {
+      return `${item.originalImg.width} x ${item.originalImg.height} px`;
+    }
+
+    function renderGrid() {
+      if (!state.items.length) {
+        imageGrid.innerHTML = '<div class="empty">Noch keine Bilder geladen. Sobald du welche auswaehlst, erscheinen sie hier mit Original und Ergebnis nebeneinander.</div>';
+        updateStats();
+        return;
+      }
+
+      imageGrid.innerHTML = '';
+      state.items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = `card${item.selected ? ' selected' : ''}`;
+        card.dataset.id = item.id;
+
+        card.innerHTML = `
+          <div class="card-head">
+            <div style="min-width:0;flex:1;">
+              <div class="name">${escapeHtml(item.name)}</div>
+              <div class="meta">${formatPixels(item)}</div>
+              <div class="pill-row">
+                <span class="pill ${item.resultBlob ? 'good' : ''}">${item.resultBlob ? 'PNG bereit' : 'Originalzustand'}</span>
+                <span class="pill">${escapeHtml(getCutoutRefineOptions().modeLabel)}</span>
+                ${item.processing ? `<span class="pill warn">${escapeHtml(item.processingLabel || 'Bearbeite...')}</span>` : ''}
+              </div>
+            </div>
+            <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
+          </div>
+
+          <div class="compare">
+            <div class="viewer">
+              <div class="viewer-title">Original</div>
+              <div class="preview-box">
+                <img src="${item.originalImg.src}" alt="Original ${escapeHtml(item.name)}" />
+              </div>
+            </div>
+
+            <div class="viewer">
+              <div class="viewer-title">Freigestellt</div>
+              <div class="preview-box">
+                ${item.resultImg ? `<img src="${item.resultImg.src}" alt="Freigestellt ${escapeHtml(item.name)}" />` : '<div class="empty-state">Noch kein Ergebnis. Entferne zuerst den Hintergrund.</div>'}
+              </div>
+            </div>
+          </div>
+
+          <div class="card-foot">
+            <div class="mini-row">
+              <span>${item.resultBlob ? 'Exportiert wird als PNG' : 'Noch kein PNG erzeugt'}</span>
+              <span>${formatPixels(item)}</span>
+            </div>
+
+            <div class="mini-controls">
+              <button class="secondary" data-action="remove">Freistellen</button>
+              <button class="secondary" data-action="restore">Original</button>
+              <button class="secondary" data-action="export">PNG exportieren</button>
+            </div>
+          </div>
+        `;
+
+        imageGrid.appendChild(card);
+      });
+
+      updateStats();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const originalImg = await loadImageElement(reader.result);
+              resolve({ file, originalImg });
+            } catch (error) {
+              reject(error);
+            }
+          };
+          reader.onerror = () => reject(new Error(`Datei konnte nicht gelesen werden: ${file.name}`));
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      loaded.forEach(({ file, originalImg }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          originalImg,
+          selected: true,
+          resultBlob: null,
+          resultImg: null,
+          resultObjectUrl: null,
+          processing: false,
+          processingLabel: ''
+        });
+      });
+
+      renderGrid();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    async function applyResultBlob(item, blob) {
+      releaseItemUrls(item);
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const resultImg = await loadImageElement(objectUrl);
+        item.resultBlob = blob;
+        item.resultImg = resultImg;
+        item.resultObjectUrl = objectUrl;
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        throw error;
+      }
+    }
+
+    async function removeBackgroundFromItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      clearUserError();
+      const removeBackground = await getBackgroundRemovalApi();
+      const refineOptions = getCutoutRefineOptions();
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        setItemProcessing(item, true, `Freistellen ${index + 1}/${items.length}`);
+        renderGrid();
+        setStatus(`Freistellen ${Math.round((index / Math.max(items.length, 1)) * 100)}% - Bild ${index + 1}/${items.length}: ${item.name}`);
+
+        try {
+          const blob = await removeBackground(
+            item.originalImg.src,
+            createBackgroundRemovalConfig(item.name, index + 1, items.length)
+          );
+          const outputBlob = refineOptions.postProcess
+            ? await refineBackgroundRemovalBlob(blob, refineOptions)
+            : blob;
+          await applyResultBlob(item, outputBlob);
+          successCount += 1;
+          state.bgRemoval.hasLoadedModel = true;
+        } catch (error) {
+          console.error('Hintergrund konnte nicht entfernt werden:', error);
+          setUserError(`Freistellen fehlgeschlagen: ${error?.message || 'Unbekannter Fehler'}`);
+          failureCount += 1;
+        } finally {
+          setItemProcessing(item, false);
+          renderGrid();
+        }
+      }
+
+      if (successCount && !failureCount) {
+        setStatus(`Hintergrund bei ${successCount} Bild${successCount === 1 ? '' : 'ern'} entfernt`);
+        return;
+      }
+
+      if (successCount && failureCount) {
+        setStatus(`Freistellen teilweise abgeschlossen: ${successCount} ok, ${failureCount} fehlgeschlagen`);
+        return;
+      }
+
+      setStatus('Automatisches Freistellen fehlgeschlagen');
+    }
+
+    function restoreItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      let restored = 0;
+      items.forEach(item => {
+        if (item.resultBlob || item.resultObjectUrl || item.resultImg) {
+          releaseItemUrls(item);
+          item.resultBlob = null;
+          item.resultImg = null;
+          restored += 1;
+        }
+        item.processing = false;
+        item.processingLabel = '';
+      });
+
+      renderGrid();
+      setStatus(restored ? `${restored} Bild${restored === 1 ? '' : 'er'} auf Original gesetzt` : 'Auswahl ist bereits im Originalzustand');
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportItem(item) {
+      if (!item.resultBlob) {
+        setStatus(`Noch kein Ergebnis fuer ${item.name}`);
+        return;
+      }
+      const base = item.name.replace(/\.[^.]+$/, '');
+      downloadBlob(item.resultBlob, `${base}-cutout.png`);
+    }
+
+    async function exportItems(items) {
+      const exportable = items.filter(item => item.resultBlob);
+      if (!exportable.length) {
+        setStatus('Keine freigestellten Bilder zum Exportieren');
+        return;
+      }
+
+      setStatus(`Exportiere ${exportable.length} PNG${exportable.length === 1 ? '' : 's'}...`);
+      for (const item of exportable) {
+        exportItem(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+      setStatus(`${exportable.length} PNG${exportable.length === 1 ? '' : 's'} exportiert`);
+    }
+
+    function clearAll() {
+      state.items.forEach(releaseItemUrls);
+      state.items = [];
+      filesInput.value = '';
+      clearUserError();
+      renderGrid();
+      setStatus('Alle Bilder entfernt');
+    }
+
+    function itemFromCard(element) {
+      const card = element.closest('.card');
+      if (!card) {
+        return null;
+      }
+      return state.items.find(item => item.id === card.dataset.id) || null;
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = true;
+      });
+      renderGrid();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = false;
+      });
+      renderGrid();
+      setStatus('Keine Bilder markiert');
+    });
+
+    clearBtn.addEventListener('click', clearAll);
+
+    filesInput.addEventListener('change', async event => {
+      try {
+        await loadFiles(event.target.files);
+      } catch (error) {
+        console.error(error);
+        setUserError(error?.message || 'Bilder konnten nicht geladen werden');
+      }
+    });
+
+    removeBgBtn.addEventListener('click', async () => {
+      try {
+        await removeBackgroundFromItems(targetItems());
+      } catch (error) {
+        console.error(error);
+        setStatus('KI-Freistellen konnte nicht gestartet werden');
+      }
+    });
+
+    restoreBtn.addEventListener('click', () => {
+      restoreItems(targetItems());
+    });
+
+    downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
+    downloadAllBtn.addEventListener('click', () => exportItems(state.items));
+
+    imageGrid.addEventListener('change', event => {
+      if (!event.target.matches('input[type="checkbox"]')) {
+        return;
+      }
+      const item = itemFromCard(event.target);
+      if (!item) {
+        return;
+      }
+      item.selected = event.target.checked;
+      event.target.closest('.card').classList.toggle('selected', item.selected);
+      updateStats();
+    });
+
+    imageGrid.addEventListener('click', event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) {
+        return;
+      }
+
+      const item = itemFromCard(button);
+      if (!item) {
+        return;
+      }
+
+      const action = button.dataset.action;
+      if (action === 'remove') {
+        removeBackgroundFromItems([item]).catch(error => {
+          console.error(error);
+          setStatus(`Freistellen fehlgeschlagen: ${item.name}`);
+        });
+      }
+
+      if (action === 'restore') {
+        restoreItems([item]);
+      }
+
+      if (action === 'export') {
+        exportItem(item);
+      }
+    });
+
+    renderGrid();
+  </script>
+</body>
+</html>
