@@ -167,7 +167,7 @@
 
     .view-switch{
       display:grid;
-      grid-template-columns:1fr 1fr;
+      grid-template-columns:1fr 1fr 1fr;
       gap:10px;
     }
 
@@ -277,6 +277,15 @@
       cursor:grabbing;
       box-shadow:0 18px 38px rgba(0,0,0,.36);
       z-index:2;
+    }
+
+    .showcase-item.is-empty{
+      opacity:.85;
+    }
+
+    .showcase-item.swap-target{
+      border-color:var(--accent);
+      box-shadow:0 0 0 2px rgba(79,140,255,.45), 0 12px 30px rgba(0,0,0,.22);
     }
 
     .showcase-item canvas{
@@ -553,6 +562,110 @@
       .topbar{flex-direction:column}
       .status{white-space:normal}
     }
+
+    .alpha-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+      gap:14px;
+      padding:16px;
+    }
+
+    .alpha-card{
+      border:1px solid #313845;
+      background:rgba(255,255,255,.03);
+      border-radius:18px;
+      overflow:hidden;
+    }
+
+    .alpha-preview-shell{
+      width:100%;
+      aspect-ratio:1;
+      position:relative;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        #0b1016;
+      background-size:22px 22px;
+      background-position:0 0, 11px 11px;
+    }
+
+    .alpha-preview-shell canvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    .alpha-card-body{
+      padding:10px 12px 12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .alpha-card-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:6px;
+    }
+
+    .case-badge{
+      display:inline-flex;
+      align-items:center;
+      padding:3px 8px;
+      border-radius:999px;
+      font-size:.72rem;
+      border:1px solid rgba(79,140,255,.35);
+      background:rgba(79,140,255,.12);
+      color:#d8e6ff;
+      white-space:nowrap;
+    }
+
+    .case-badge.lowercase{
+      border-color:rgba(92,255,176,.3);
+      background:rgba(92,255,176,.1);
+      color:#b8ffe0;
+    }
+
+    .case-badge.neutral{
+      border-color:rgba(180,180,180,.25);
+      background:rgba(180,180,180,.07);
+      color:#d0d4da;
+    }
+
+    .alpha-stats{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .alpha-empty{
+      padding:34px 18px;
+      border:1px dashed #4a5564;
+      border-radius:16px;
+      text-align:center;
+      color:var(--muted);
+      background:rgba(255,255,255,.02);
+      margin:16px;
+    }
+
+    .alpha-meta{
+      color:var(--muted);
+      font-size:.76rem;
+      line-height:1.4;
+    }
+
+    .alpha-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .alpha-actions button{
+      padding:7px 10px;
+      font-size:.8rem;
+      border-radius:10px;
+    }
   </style>
 </head>
 <body>
@@ -579,6 +692,7 @@
           <div class="view-switch">
             <button id="editorViewBtn" class="secondary active">Batch Editing</button>
             <button id="showcaseViewBtn" class="secondary">Showcasing</button>
+            <button id="typografieViewBtn" class="secondary">Typografie</button>
           </div>
         </div>
       </div>
@@ -709,6 +823,7 @@
           <div class="button-row">
             <button id="removeBgBtn" class="secondary">Hintergrund automatisch entfernen</button>
             <button id="squarePackBtn" class="secondary">Freigestellte quadratisch packen</button>
+            <button id="trimContentBtn" class="secondary">Inhalt zuschneiden</button>
             <button id="restoreOriginalBtn" class="secondary">Original wiederherstellen</button>
           </div>
 
@@ -803,8 +918,94 @@
             <button id="showcaseExportBtn" class="secondary">Showcase als PNG</button>
           </div>
 
+          <div class="two">
+            <div class="row">
+              <label for="showcaseEmptyCount">Leere Kacheln</label>
+              <input id="showcaseEmptyCount" type="number" min="1" max="24" step="1" value="1" />
+            </div>
+            <div class="row">
+              <label>&nbsp;</label>
+              <button id="showcaseAddEmptyBtn" class="secondary">Leer hinzuf&uuml;gen</button>
+            </div>
+          </div>
+
           <div class="small">
-            Bilder im Showcase lassen sich frei verschieben. Mit <strong>R</strong> wird das Raster in der Showcase-Ansicht neu ausgerichtet.
+            Bilder im Showcase lassen sich frei verschieben. Auf ein anderes Bild ziehen tauscht die Positionen. Mit <strong>R</strong> wird das Raster in der Showcase-Ansicht neu ausgerichtet.
+          </div>
+        </div>
+      </div>
+      <div class="section view-panel hidden" data-view-panel="typografie">
+        <h2>Typografie</h2>
+        <p class="sub">Normiere Buchstaben-PNGs auf einheitliche Versalhoehe. Versalien und Gemeine werden automatisch erkannt.</p>
+        <div class="controls">
+          <div class="two">
+            <div class="row">
+              <label for="alphaCapHeight">Versalhoehe (px)</label>
+              <input id="alphaCapHeight" type="number" min="16" max="1000" step="1" value="100" />
+            </div>
+            <div class="row">
+              <div class="value-row"><label for="alphaLowercaseRatio">Gemeinen-Ratio</label><span id="alphaLowercaseRatioVal">72 %</span></div>
+              <input id="alphaLowercaseRatio" type="range" min="40" max="100" value="72" />
+            </div>
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="alphaAlphaThreshold">Alpha-Schwelle</label>
+              <input id="alphaAlphaThreshold" type="number" min="1" max="254" step="1" value="8" />
+            </div>
+            <div class="row">
+              <label for="alphaTopPadding">Oben-Padding (px)</label>
+              <input id="alphaTopPadding" type="number" min="0" max="300" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="alphaBottomPadding">Unten-Padding (px)</label>
+              <input id="alphaBottomPadding" type="number" min="0" max="300" step="1" value="0" />
+            </div>
+            <div class="row">
+              <label for="alphaSidePadding">Seiten-Padding (px)</label>
+              <input id="alphaSidePadding" type="number" min="0" max="300" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="alphaExportBg">Export-Hintergrund</label>
+            <select id="alphaExportBg">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiss</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="alphaReanalyzeBtn" class="secondary">Neu analysieren</button>
+            <button id="alphaExportAllBtn" class="secondary">Alle normiert exportieren</button>
+          </div>
+
+          <div class="alpha-stats">
+            <div class="stat">
+              <div class="k">Gesamt</div>
+              <div class="v" id="alphaStatCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Versalien</div>
+              <div class="v" id="alphaStatUpper">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Gemeine</div>
+              <div class="v" id="alphaStatLower">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Neutral</div>
+              <div class="v" id="alphaStatNeutral">0</div>
+            </div>
+          </div>
+
+          <div class="small">
+            Blau = Versaloberkante, Rot = Grundlinie. Gross-/Kleinschreibung des Dateinamens bestimmt die Gruppe.
           </div>
         </div>
       </div>
@@ -848,6 +1049,12 @@
           <div id="showcaseStageInner" class="showcase-stage-inner">
             <div id="showcaseEmpty" class="showcase-empty">Noch kein Showcase-Raster erstellt. Wechsle auf „Showcasing“ und fülle das Layout mit Bildern.</div>
           </div>
+        </div>
+      </div>
+
+      <div id="typografiePane" class="panel workspace-pane hidden">
+        <div id="alphaGrid" class="alpha-grid">
+          <div id="alphaEmpty" class="alpha-empty">Bilder laden und zur Typografie-Ansicht wechseln, um normierte Buchstaben-Vorschauen zu sehen.</div>
         </div>
       </div>
     </section>
@@ -928,6 +1135,39 @@
     const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
+    const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
+    const typografieViewBtn = document.getElementById('typografieViewBtn');
+    const typografiePane = document.getElementById('typografiePane');
+    const alphaGrid = document.getElementById('alphaGrid');
+    const alphaEmpty = document.getElementById('alphaEmpty');
+    const trimContentBtn = document.getElementById('trimContentBtn');
+    const alphaReanalyzeBtn = document.getElementById('alphaReanalyzeBtn');
+    const alphaExportAllBtn = document.getElementById('alphaExportAllBtn');
+
+    const alphabetControls = {
+      capHeight: document.getElementById('alphaCapHeight'),
+      lowercaseRatio: document.getElementById('alphaLowercaseRatio'),
+      alphaThreshold: document.getElementById('alphaAlphaThreshold'),
+      topPadding: document.getElementById('alphaTopPadding'),
+      bottomPadding: document.getElementById('alphaBottomPadding'),
+      sidePadding: document.getElementById('alphaSidePadding'),
+      exportBg: document.getElementById('alphaExportBg')
+    };
+
+    const alphaLabels = {
+      lowercaseRatio: document.getElementById('alphaLowercaseRatioVal')
+    };
+
+    const alphaStats = {
+      count: document.getElementById('alphaStatCount'),
+      upper: document.getElementById('alphaStatUpper'),
+      lower: document.getElementById('alphaStatLower'),
+      neutral: document.getElementById('alphaStatNeutral')
+    };
+
+    const showcaseExtraControls = {
+      emptyCount: document.getElementById('showcaseEmptyCount')
+    };
 
     const state = {
       items: [],
@@ -938,7 +1178,8 @@
       showcase: {
         items: [],
         dragging: null,
-        boardPadding: 28
+        boardPadding: 28,
+        emptyCounter: 0
       },
       bgRemoval: {
         removeBackground: null,
@@ -1021,7 +1262,7 @@
       return canvas;
     }
 
-    function getAlphaBounds(img) {
+    function getAlphaBounds(img, threshold = 8) {
       const canvas = createOffscreenCanvas(img.width, img.height);
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.clearRect(0, 0, img.width, img.height);
@@ -1036,7 +1277,7 @@
       for (let y = 0; y < img.height; y += 1) {
         for (let x = 0; x < img.width; x += 1) {
           const alpha = data[((y * img.width) + x) * 4 + 3];
-          if (alpha > 8) {
+          if (alpha > threshold) {
             if (x < minX) minX = x;
             if (y < minY) minY = y;
             if (x > maxX) maxX = x;
@@ -1086,6 +1327,311 @@
       const x = (canvas.width - drawW) / 2;
       const y = (canvas.height - drawH) / 2;
       return { x, y, drawW, drawH, scale };
+    }
+
+    // --- Alphabet / Typography tool functions ---
+
+    function inferCaseGroup(name) {
+      const base = name.replace(/\.[^.]+$/, '');
+      const marker = Array.from(base).find(ch => ch.toLowerCase() !== ch.toUpperCase());
+      if (!marker) return 'neutral';
+      return marker === marker.toUpperCase() ? 'uppercase' : 'lowercase';
+    }
+
+    function effectiveCaseGroup(item) {
+      return item.caseOverride || item.inferredCase || 'neutral';
+    }
+
+    function getAlphabetBoundsForItem(item) {
+      const threshold = clamp(Number(alphabetControls.alphaThreshold.value) || 8, 1, 254);
+      if (!item.alphaBounds || item.alphaBoundsThreshold !== threshold) {
+        item.alphaBounds = getAlphaBounds(item.img, threshold);
+        item.alphaBoundsThreshold = threshold;
+      }
+      return item.alphaBounds;
+    }
+
+    function getAlphabetNormalizedMetrics(item) {
+      const bounds = getAlphabetBoundsForItem(item);
+      const capHeight = clamp(Number(alphabetControls.capHeight.value) || 100, 16, 1000);
+      const ratio = clamp((Number(alphabetControls.lowercaseRatio.value) || 72) / 100, 0.4, 1);
+      const group = effectiveCaseGroup(item);
+      const targetVisibleHeight = group === 'lowercase' ? capHeight * ratio : capHeight;
+      const topPadding = clamp(Number(alphabetControls.topPadding.value) || 0, 0, 300);
+      const bottomPadding = clamp(Number(alphabetControls.bottomPadding.value) || 0, 0, 300);
+      const sidePadding = clamp(Number(alphabetControls.sidePadding.value) || 0, 0, 300);
+      const scale = targetVisibleHeight / Math.max(1, bounds.height);
+      const drawWidth = bounds.width * scale;
+      const drawHeight = bounds.height * scale;
+      const outputWidth = Math.max(1, Math.round(drawWidth + sidePadding * 2));
+      const outputHeight = Math.max(1, Math.round(topPadding + capHeight + bottomPadding));
+      const baselineY = topPadding + capHeight;
+      const drawX = (outputWidth - drawWidth) / 2;
+      const drawY = baselineY - drawHeight;
+      return { bounds, scale, drawX, drawY, drawWidth, drawHeight, outputWidth, outputHeight, baselineY, capTopY: topPadding, targetVisibleHeight };
+    }
+
+    function buildAlphabetNormalizedCanvas(item, background) {
+      const metrics = getAlphabetNormalizedMetrics(item);
+      const out = document.createElement('canvas');
+      out.width = metrics.outputWidth;
+      out.height = metrics.outputHeight;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      if (background === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else if (background === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, out.width, out.height);
+      }
+      ctx.drawImage(item.img, metrics.bounds.x, metrics.bounds.y, metrics.bounds.width, metrics.bounds.height, metrics.drawX, metrics.drawY, metrics.drawWidth, metrics.drawHeight);
+      return { canvas: out, metrics };
+    }
+
+    function drawAlphabetPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      const ratio = state.pixelRatio;
+      const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
+      const height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#0b1016';
+      ctx.fillRect(0, 0, width, height);
+      const normalized = buildAlphabetNormalizedCanvas(item, 'transparent');
+      const margin = 16 * ratio;
+      const availW = Math.max(1, width - margin * 2);
+      const availH = Math.max(1, height - margin * 2);
+      const scale = Math.min(availW / normalized.canvas.width, availH / normalized.canvas.height);
+      const drawW = normalized.canvas.width * scale;
+      const drawH = normalized.canvas.height * scale;
+      const offsetX = (width - drawW) / 2;
+      const offsetY = (height - drawH) / 2;
+      ctx.drawImage(normalized.canvas, offsetX, offsetY, drawW, drawH);
+      ctx.save();
+      ctx.lineWidth = Math.max(1, ratio);
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + normalized.metrics.baselineY * scale);
+      ctx.lineTo(offsetX + drawW, offsetY + normalized.metrics.baselineY * scale);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(80, 140, 255, 0.65)';
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + normalized.metrics.capTopY * scale);
+      ctx.lineTo(offsetX + drawW, offsetY + normalized.metrics.capTopY * scale);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateAlphabetSummary() {
+      alphaStats.count.textContent = String(state.items.length);
+      alphaStats.upper.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'uppercase').length);
+      alphaStats.lower.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'lowercase').length);
+      alphaStats.neutral.textContent = String(state.items.filter(item => effectiveCaseGroup(item) === 'neutral').length);
+      alphaLabels.lowercaseRatio.textContent = `${alphabetControls.lowercaseRatio.value} %`;
+    }
+
+    function renderAlphabetGrid() {
+      alphaGrid.innerHTML = '';
+      updateAlphabetSummary();
+      if (!state.items.length) {
+        alphaGrid.appendChild(alphaEmpty);
+        alphaEmpty.style.display = 'block';
+        return;
+      }
+      alphaEmpty.style.display = 'none';
+
+      state.items.forEach(item => {
+        const metrics = getAlphabetNormalizedMetrics(item);
+        const group = effectiveCaseGroup(item);
+        const badgeLabel = group === 'uppercase' ? 'Versal' : group === 'lowercase' ? 'Gemeine' : 'Neutral';
+        const badgeClass = group === 'uppercase' ? '' : group === 'lowercase' ? 'lowercase' : 'neutral';
+
+        const card = document.createElement('article');
+        card.className = 'alpha-card';
+
+        const shell = document.createElement('div');
+        shell.className = 'alpha-preview-shell';
+        const previewCanvas = document.createElement('canvas');
+        shell.appendChild(previewCanvas);
+
+        const body = document.createElement('div');
+        body.className = 'alpha-card-body';
+
+        const head = document.createElement('div');
+        head.className = 'alpha-card-head';
+        head.innerHTML = `<div class="name" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.85rem;">${escapeHtml(item.name)}</div><div class="case-badge ${badgeClass}">${escapeHtml(badgeLabel)}</div>`;
+
+        const meta = document.createElement('div');
+        meta.className = 'alpha-meta';
+        meta.innerHTML = `${item.img.width}&times;${item.img.height} px &rarr; normiert ${metrics.outputWidth}&times;${metrics.outputHeight} px`;
+
+        const caseRow = document.createElement('div');
+        caseRow.className = 'row';
+        caseRow.innerHTML = `<label>Gruppe</label><select data-role="caseSelect"><option value="uppercase"${group==='uppercase'?' selected':''}>Versal</option><option value="lowercase"${group==='lowercase'?' selected':''}>Gemeine</option><option value="neutral"${group==='neutral'?' selected':''}>Neutral</option></select>`;
+
+        const actions = document.createElement('div');
+        actions.className = 'alpha-actions';
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'secondary';
+        exportBtn.textContent = 'PNG exportieren';
+        exportBtn.addEventListener('click', () => exportNormalizedItem(item));
+        actions.appendChild(exportBtn);
+
+        body.appendChild(head);
+        body.appendChild(meta);
+        body.appendChild(caseRow);
+        body.appendChild(actions);
+
+        card.appendChild(shell);
+        card.appendChild(body);
+        alphaGrid.appendChild(card);
+
+        drawAlphabetPreview(item, previewCanvas);
+
+        const caseSelect = caseRow.querySelector('[data-role="caseSelect"]');
+        caseSelect.addEventListener('change', () => {
+          item.caseOverride = caseSelect.value;
+          renderAlphabetGrid();
+          setStatus(`${item.name}: Gruppe auf ${caseSelect.options[caseSelect.selectedIndex].textContent} gesetzt`);
+        });
+      });
+    }
+
+    function reanalyzeAlphaBounds() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder geladen');
+        return;
+      }
+      state.items.forEach(item => {
+        item.alphaBounds = null;
+        item.alphaBoundsThreshold = null;
+        getAlphabetBoundsForItem(item);
+      });
+      renderAlphabetGrid();
+      setStatus('Alpha-Bounds neu berechnet');
+    }
+
+    function exportNormalizedItem(item) {
+      const bg = alphabetControls.exportBg.value;
+      const result = buildAlphabetNormalizedCanvas(item, bg);
+      const base = item.name.replace(/\.[^.]+$/, '');
+      downloadCanvas(result.canvas, `${base}-normalized`, 'image/png', 1);
+      setStatus(`${item.name} normiert exportiert`);
+    }
+
+    async function exportAllNormalized() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder zum Exportieren');
+        return;
+      }
+      for (let i = 0; i < state.items.length; i += 1) {
+        exportNormalizedItem(state.items[i]);
+        await new Promise(resolve => setTimeout(resolve, 90));
+      }
+      setStatus(`${state.items.length} normierte PNG${state.items.length === 1 ? '' : 's'} exportiert`);
+    }
+
+    // --- Trim to content bounds (Task 3) ---
+
+    async function applyTrimToItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+      let trimmed = 0;
+      for (const item of items) {
+        const bounds = getAlphaBounds(item.img);
+        if (bounds.x === 0 && bounds.y === 0 && bounds.width === item.img.width && bounds.height === item.img.height) {
+          continue;
+        }
+        const out = document.createElement('canvas');
+        out.width = Math.max(1, bounds.width);
+        out.height = Math.max(1, bounds.height);
+        const ctx = out.getContext('2d');
+        ctx.drawImage(item.img, -bounds.x, -bounds.y);
+        await replaceItemImageFromSource(item, out.toDataURL('image/png'));
+        item.crop = defaultCrop();
+        item.alphaBounds = null;
+        trimmed += 1;
+      }
+      renderGrid();
+      if (state.view === 'typografie') renderAlphabetGrid();
+      setStatus(trimmed ? `${trimmed} Bild${trimmed === 1 ? '' : 'er'} auf Inhalt zugeschnitten` : 'Kein transparenter Rand zum Entfernen gefunden');
+    }
+
+    // --- Empty showcase tiles (Task 2 – Zwischenspeicher) ---
+
+    function isEmptyShowcaseEntry(entry) {
+      return Boolean(entry && entry.isEmpty);
+    }
+
+    function createEmptyShowcaseEntry(metrics) {
+      state.showcase.emptyCounter += 1;
+      return {
+        id: crypto.randomUUID(),
+        isEmpty: true,
+        name: `Leer ${state.showcase.emptyCounter}`,
+        x: 0,
+        y: 0,
+        size: clamp(Number(showcaseControls.tile.value) || 220, 120, 360)
+      };
+    }
+
+    function clearSwapTarget() {
+      if (!state.showcase.dragging || !state.showcase.dragging.swapTargetId) return;
+      const prev = showcaseStageInner.querySelector(`[data-showcase-id="${state.showcase.dragging.swapTargetId}"]`);
+      prev?.classList.remove('swap-target');
+      state.showcase.dragging.swapTargetId = null;
+    }
+
+    function findSwapTarget(draggingEntry) {
+      const cx = draggingEntry.x + draggingEntry.size / 2;
+      const cy = draggingEntry.y + draggingEntry.size / 2;
+      return state.showcase.items.find(entry => {
+        if (entry.id === draggingEntry.id) return false;
+        return cx >= entry.x && cx <= entry.x + entry.size && cy >= entry.y && cy <= entry.y + entry.size;
+      }) || null;
+    }
+
+    function updateSwapTarget(draggingEntry) {
+      const next = findSwapTarget(draggingEntry);
+      const nextId = next?.id || null;
+      if (state.showcase.dragging?.swapTargetId === nextId) return next;
+      clearSwapTarget();
+      if (nextId) {
+        const targetCard = showcaseStageInner.querySelector(`[data-showcase-id="${nextId}"]`);
+        targetCard?.classList.add('swap-target');
+        state.showcase.dragging.swapTargetId = nextId;
+      }
+      return next;
+    }
+
+    function addEmptyTiles() {
+      const count = clamp(Number(showcaseExtraControls.emptyCount.value) || 1, 1, 24);
+      if (!state.showcase.items.length) {
+        setStatus('Zuerst das Showcase-Raster befuellen');
+        return;
+      }
+      // Zwischenspeicher: sort items by visual position before inserting empty tiles,
+      // so the current drag-reordered layout is preserved.
+      const metrics = getShowcaseMetrics();
+      const labelHeight = 32;
+      const rowH = Math.max(1, metrics.tile + metrics.gap + labelHeight);
+      const colW = Math.max(1, metrics.tile + metrics.gap);
+      state.showcase.items.sort((a, b) => {
+        const rowA = Math.round(a.y / rowH);
+        const rowB = Math.round(b.y / rowH);
+        if (rowA !== rowB) return rowA - rowB;
+        return Math.round(a.x / colW) - Math.round(b.x / colW);
+      });
+      for (let i = 0; i < count; i += 1) {
+        state.showcase.items.push(createEmptyShowcaseEntry(metrics));
+      }
+      autoArrangeShowcase(false);
+      setStatus(`${count} leere Kachel${count === 1 ? '' : 'n'} hinzugefuegt`);
     }
 
     function hasActiveCrop(item) {
@@ -1662,24 +2208,32 @@
     function setView(view) {
       state.view = view;
       const editorActive = view === 'editor';
+      const showcaseActive = view === 'showcase';
+      const typografieActive = view === 'typografie';
 
       editorViewBtn.classList.toggle('active', editorActive);
-      showcaseViewBtn.classList.toggle('active', !editorActive);
+      showcaseViewBtn.classList.toggle('active', showcaseActive);
+      typografieViewBtn.classList.toggle('active', typografieActive);
 
       viewPanels().forEach(panel => {
         panel.classList.toggle('hidden', panel.dataset.viewPanel !== view);
       });
 
       editorPane.classList.toggle('hidden', !editorActive);
-      showcasePane.classList.toggle('hidden', editorActive);
+      showcasePane.classList.toggle('hidden', !showcaseActive);
+      typografiePane.classList.toggle('hidden', !typografieActive);
 
-      workspaceTitle.textContent = editorActive ? 'Rastervorschau' : 'Showcase-Bühne';
-      workspaceSubtitle.textContent = editorActive
-        ? 'Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.'
-        : 'Ziehe Bilder frei im Raster, richte sie automatisch aus und exportiere die Komposition als PNG.';
-
-      if (!editorActive) {
+      if (editorActive) {
+        workspaceTitle.textContent = 'Rastervorschau';
+        workspaceSubtitle.textContent = 'Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.';
+      } else if (showcaseActive) {
+        workspaceTitle.textContent = 'Showcase-Bühne';
+        workspaceSubtitle.textContent = 'Ziehe Bilder frei im Raster, richte sie automatisch aus und exportiere die Komposition als PNG.';
         renderShowcase();
+      } else if (typografieActive) {
+        workspaceTitle.textContent = 'Typografie-Analyse';
+        workspaceSubtitle.textContent = 'Normierte Glyphen-Vorschau. Blau = Versaloberkante, Rot = Grundlinie.';
+        renderAlphabetGrid();
       }
     }
 
@@ -1891,6 +2445,7 @@
               <button class="secondary" data-action="reset">Reset</button>
               <button class="secondary" data-action="remove-bg">Freistellen</button>
               <button class="secondary" data-action="square-pack">Quadrat</button>
+              <button class="secondary" data-action="trim-content">Trimmen</button>
               <button class="secondary" data-action="enhance">Enhance</button>
               <button class="secondary" data-action="restore-original">Original</button>
               <button class="secondary" data-action="export">Export</button>
@@ -1925,7 +2480,7 @@
 
     function sanitizeShowcaseItems() {
       const validIds = new Set(state.items.map(item => item.id));
-      state.showcase.items = state.showcase.items.filter(item => validIds.has(item.sourceId));
+      state.showcase.items = state.showcase.items.filter(item => isEmptyShowcaseEntry(item) || validIds.has(item.sourceId));
     }
 
     function getShowcaseMetrics() {
@@ -1954,6 +2509,19 @@
       }
 
       const metrics = getShowcaseMetrics();
+
+      // Zwischenspeicher: preserve visual order by sorting items by their current
+      // on-screen position (row-major) before reassigning grid coordinates.
+      // This means manually dragged arrangements survive auto-arrange and empty-tile insertions.
+      const rowH = Math.max(1, metrics.tile + metrics.gap + metrics.labelHeight);
+      const colW = Math.max(1, metrics.tile + metrics.gap);
+      state.showcase.items.sort((a, b) => {
+        const rowA = Math.round(a.y / rowH);
+        const rowB = Math.round(b.y / rowH);
+        if (rowA !== rowB) return rowA - rowB;
+        return Math.round(a.x / colW) - Math.round(b.x / colW);
+      });
+
       state.showcase.items.forEach((entry, index) => {
         const col = index % metrics.columns;
         const row = Math.floor(index / metrics.columns);
@@ -1965,7 +2533,7 @@
       renderShowcase();
 
       if (announce) {
-        setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} ausgerichtet`);
+        setStatus(`Showcase mit ${state.showcase.items.length} Kachel${state.showcase.items.length === 1 ? '' : 'n'} ausgerichtet`);
       }
     }
 
@@ -1990,9 +2558,6 @@
     }
 
     function renderShowcaseCard(entry, canvas) {
-      const item = showcaseItemById(entry.sourceId);
-      if (!item) return;
-
       const ratio = state.pixelRatio;
       const labelHeight = 32;
       const width = Math.max(1, Math.round(entry.size * ratio));
@@ -2002,6 +2567,25 @@
 
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, width, height);
+
+      if (isEmptyShowcaseEntry(entry)) {
+        ctx.fillStyle = '#101720';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(194,206,221,.42)';
+        ctx.lineWidth = Math.max(2, width * 0.008);
+        ctx.setLineDash([12, 10]);
+        ctx.strokeRect(ctx.lineWidth, ctx.lineWidth, width - ctx.lineWidth * 2, height - ctx.lineWidth * 2);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(194,206,221,.8)';
+        ctx.font = `${Math.max(18, Math.round(width * 0.1))}px Segoe UI, Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', width / 2, height / 2);
+        return;
+      }
+
+      const item = showcaseItemById(entry.sourceId);
+      if (!item) return;
       drawPreview(item, canvas);
     }
 
@@ -2022,11 +2606,12 @@
       let maxBottom = 0;
 
       state.showcase.items.forEach(entry => {
-        const item = showcaseItemById(entry.sourceId);
-        if (!item) return;
+        const isEmpty = isEmptyShowcaseEntry(entry);
+        const item = isEmpty ? null : showcaseItemById(entry.sourceId);
+        if (!isEmpty && !item) return;
 
         const card = document.createElement('div');
-        card.className = 'showcase-item';
+        card.className = `showcase-item${isEmpty ? ' is-empty' : ''}`;
         card.dataset.showcaseId = entry.id;
         card.style.left = `${entry.x}px`;
         card.style.top = `${entry.y}px`;
@@ -2036,7 +2621,7 @@
         const canvas = document.createElement('canvas');
         const label = document.createElement('div');
         label.className = 'showcase-label';
-        label.textContent = item.name;
+        label.textContent = isEmpty ? entry.name : item.name;
 
         card.appendChild(canvas);
         card.appendChild(label);
@@ -2081,6 +2666,7 @@
       }
 
       state.showcase.items.forEach(entry => {
+        if (isEmptyShowcaseEntry(entry)) return;
         const item = showcaseItemById(entry.sourceId);
         if (!item) return;
 
@@ -2131,7 +2717,11 @@
           processing: false,
           processingLabel: '',
           crop: defaultCrop(),
-          edit: defaultEdit()
+          edit: defaultEdit(),
+          inferredCase: inferCaseGroup(file.name),
+          caseOverride: null,
+          alphaBounds: null,
+          alphaBoundsThreshold: null
         });
       });
 
@@ -2448,9 +3038,11 @@
       state.items.forEach(releaseItemObjectUrl);
       state.items = [];
       state.showcase.items = [];
+      state.showcase.emptyCounter = 0;
       filesInput.value = '';
       renderGrid();
       renderShowcase();
+      if (state.view === 'typografie') renderAlphabetGrid();
       setStatus('Alles gelöscht');
     }
 
@@ -2589,6 +3181,10 @@
       }
     });
     squarePackBtn.addEventListener('click', () => applySquarePackToItems(targetItems()));
+    trimContentBtn.addEventListener('click', () => applyTrimToItems(targetItems()).catch(error => {
+      console.error(error);
+      setStatus('Trimmen fehlgeschlagen');
+    }));
     restoreOriginalBtn.addEventListener('click', () => restoreOriginalForItems(targetItems()));
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
@@ -2597,6 +3193,29 @@
     showcasePopulateBtn.addEventListener('click', populateShowcase);
     showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
+    showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
+
+    typografieViewBtn.addEventListener('click', () => setView('typografie'));
+    alphaReanalyzeBtn.addEventListener('click', reanalyzeAlphaBounds);
+    alphaExportAllBtn.addEventListener('click', () => exportAllNormalized().catch(error => {
+      console.error(error);
+      setStatus('Export fehlgeschlagen');
+    }));
+
+    alphabetControls.lowercaseRatio.addEventListener('input', () => {
+      alphaLabels.lowercaseRatio.textContent = `${alphabetControls.lowercaseRatio.value} %`;
+      if (state.view === 'typografie') renderAlphabetGrid();
+    });
+
+    [alphabetControls.capHeight, alphabetControls.topPadding, alphabetControls.bottomPadding, alphabetControls.sidePadding].forEach(el => {
+      el.addEventListener('input', () => {
+        if (state.view === 'typografie') renderAlphabetGrid();
+      });
+    });
+
+    alphabetControls.alphaThreshold.addEventListener('change', () => {
+      if (state.view === 'typografie') reanalyzeAlphaBounds();
+    });
 
     imageGrid.addEventListener('change', evt => {
       if (!evt.target.matches('input[type="checkbox"]')) return;
@@ -2639,6 +3258,13 @@
 
       if (action === 'square-pack') {
         applySquarePackToItems([item]);
+      }
+
+      if (action === 'trim-content') {
+        applyTrimToItems([item]).catch(error => {
+          console.error(error);
+          setStatus(`Trimmen fehlgeschlagen: ${item.name}`);
+        });
       }
 
       if (action === 'enhance') {
@@ -2805,7 +3431,8 @@
         startY: evt.clientY,
         left: entry.x,
         top: entry.y,
-        card
+        card,
+        swapTargetId: null
       };
 
       card.classList.add('dragging');
@@ -2823,6 +3450,7 @@
       entry.y = Math.max(0, dragging.top + (evt.clientY - dragging.startY));
       dragging.card.style.left = `${entry.x}px`;
       dragging.card.style.top = `${entry.y}px`;
+      updateSwapTarget(entry);
 
       const metrics = getShowcaseMetrics();
       showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.size + metrics.boardPadding)}px`;
@@ -2832,11 +3460,30 @@
     function endShowcaseDrag(evt) {
       if (!state.showcase.dragging) return;
 
+      const dragging = state.showcase.dragging;
+      const draggedEntry = state.showcase.items.find(item => item.id === dragging.id);
+      const targetEntry = dragging.swapTargetId
+        ? state.showcase.items.find(item => item.id === dragging.swapTargetId)
+        : null;
+
+      if (draggedEntry && targetEntry) {
+        const origX = dragging.left;
+        const origY = dragging.top;
+        draggedEntry.x = targetEntry.x;
+        draggedEntry.y = targetEntry.y;
+        targetEntry.x = origX;
+        targetEntry.y = origY;
+        renderShowcase();
+        setStatus('Positionen getauscht');
+      }
+
+      clearSwapTarget();
+
       try {
-        state.showcase.dragging.card.releasePointerCapture(evt.pointerId);
+        dragging.card.releasePointerCapture(evt.pointerId);
       } catch (error) {}
 
-      state.showcase.dragging.card.classList.remove('dragging');
+      dragging.card.classList.remove('dragging');
       state.showcase.dragging = null;
     }
 
