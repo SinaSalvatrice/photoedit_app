@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nur Showcasing</title>
+  <style>
+    :root {
+      --bg: #0b1118;
+      --panel: rgba(18, 25, 34, 0.96);
+      --panel-2: #1d2734;
+      --line: #344253;
+      --text: #edf3f9;
+      --muted: #aab6c5;
+      --accent: #6ea1ff;
+      --accent-2: #4d78cc;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(110, 161, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, #091018 0%, #0e141c 100%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1640px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+    h1 {
+      font-size: 1.18rem;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.48;
+      margin-bottom: 14px;
+    }
+
+    .controls,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row { display: grid; gap: 7px; }
+
+    .triple {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    input[type="range"],
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed #4a596d;
+      color: var(--muted);
+    }
+
+    input[type="number"],
+    select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #39485b;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #4263a4;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.94rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      border-color: #3b4a5f;
+      color: var(--text);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .hint {
+      border: 1px solid rgba(110, 161, 255, 0.2);
+      background: rgba(110, 161, 255, 0.08);
+      color: #dbe8ff;
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+
+    .thumbs {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .thumb {
+      display: grid;
+      grid-template-columns: 18px 72px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      border-radius: 16px;
+      border: 1px solid #324053;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .thumb.selected {
+      border-color: var(--accent);
+      background: rgba(110, 161, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(110, 161, 255, 0.2);
+    }
+
+    .thumb input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .thumb img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .thumb-name {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .thumb-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 32px);
+    }
+
+    .topbar {
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .status {
+      border: 1px solid #354458;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 120px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid #3b495d;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .stage-wrap {
+      padding: 18px;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 560px;
+      overflow: auto;
+      border-radius: 22px;
+      border: 1px solid #364458;
+      background:
+        radial-gradient(circle at top left, rgba(110, 161, 255, 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+        #0b1016;
+    }
+
+    .stage-inner {
+      position: relative;
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    .empty {
+      position: absolute;
+      inset: 24px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px dashed #4a596d;
+      background: rgba(255, 255, 255, 0.02);
+      line-height: 1.5;
+    }
+
+    .showcase-item {
+      position: absolute;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(14, 19, 27, 0.94);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .showcase-item.dragging {
+      cursor: grabbing;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.34);
+      z-index: 2;
+    }
+
+    .showcase-item canvas {
+      display: block;
+      width: 100%;
+      background: transparent;
+    }
+
+    .showcase-label {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 1120px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 12px; }
+
+      .triple {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Showcase Tool</h1>
+        <p class="sub">Nur fuer Layout, Auswahl und Export. Bilder laden, Raster bauen, Kacheln ziehen und die Komposition direkt als PNG ausgeben.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Keine markieren</button>
+            <button id="clearBtn" class="secondary">Alles entfernen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Layout</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="showcaseSource">Showcase fuellen mit</label>
+            <select id="showcaseSource">
+              <option value="selected">Markierten Bildern</option>
+              <option value="all">Allen Bildern</option>
+            </select>
+          </div>
+
+          <div class="triple">
+            <div class="row">
+              <label for="showcaseColumns">Spalten</label>
+              <input id="showcaseColumns" type="number" min="1" max="8" step="1" value="3" />
+            </div>
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseGap">Abstand</label><span id="showcaseGapVal">24 px</span></div>
+              <input id="showcaseGap" type="range" min="0" max="80" value="24" />
+            </div>
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseTileWidth">Kachelbreite</label><span id="showcaseTileWidthVal">260 px</span></div>
+              <input id="showcaseTileWidth" type="range" min="160" max="420" value="260" />
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="showcaseBg">Hintergrund fuer Export</label>
+            <select id="showcaseBg">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiss</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="showcasePopulateBtn">Raster fuellen</button>
+            <button id="showcaseArrangeBtn" class="secondary">Automatisch ausrichten</button>
+            <button id="showcaseExportBtn" class="secondary">Als PNG exportieren</button>
+          </div>
+
+          <div class="hint">
+            Die Kacheln sind absichtlich etwas breiter als hoch, damit einzelne Motive weniger vertikal gestreckt wirken. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Bilder</h2>
+        <div id="thumbs" class="thumbs"></div>
+      </div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="topbar">
+        <div>
+          <h2>Showcase-Buehne</h2>
+          <p class="sub" style="margin: 6px 0 0 0;">Frei verschiebbare Bildkacheln mit automatischer Rasterverteilung und PNG-Export.</p>
+
+          <div class="summary">
+            <div class="stat">
+              <div class="k">Bilder</div>
+              <div id="statCount" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Markiert</div>
+              <div id="statSelected" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Im Showcase</div>
+              <div id="statShowcase" class="v">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div class="stage-wrap">
+        <div id="showcaseStage" class="stage">
+          <div id="showcaseStageInner" class="stage-inner">
+            <div id="showcaseEmpty" class="empty">Noch kein Showcase-Raster erstellt. Bilder laden und dann das Layout mit den markierten oder allen Bildern fuellen.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const thumbs = document.getElementById('thumbs');
+    const statusText = document.getElementById('statusText');
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statShowcase = document.getElementById('statShowcase');
+    const showcaseStage = document.getElementById('showcaseStage');
+    const showcaseStageInner = document.getElementById('showcaseStageInner');
+    const showcaseEmpty = document.getElementById('showcaseEmpty');
+
+    const controls = {
+      source: document.getElementById('showcaseSource'),
+      columns: document.getElementById('showcaseColumns'),
+      gap: document.getElementById('showcaseGap'),
+      tileWidth: document.getElementById('showcaseTileWidth'),
+      bg: document.getElementById('showcaseBg')
+    };
+
+    const labels = {
+      gap: document.getElementById('showcaseGapVal'),
+      tileWidth: document.getElementById('showcaseTileWidthVal')
+    };
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
+    const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
+    const showcaseExportBtn = document.getElementById('showcaseExportBtn');
+
+    const state = {
+      items: [],
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      showcase: {
+        items: [],
+        dragging: null,
+        boardPadding: 28,
+        tileAspect: 0.84,
+        labelHeight: 34
+      }
+    };
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function updateLabels() {
+      labels.gap.textContent = `${controls.gap.value} px`;
+      labels.tileWidth.textContent = `${controls.tileWidth.value} px`;
+    }
+
+    function updateStats() {
+      statCount.textContent = String(state.items.length);
+      statSelected.textContent = String(state.items.filter(item => item.selected).length);
+      statShowcase.textContent = String(state.showcase.items.length);
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function showcaseSourceItems() {
+      return controls.source.value === 'all' ? state.items : selectedItems();
+    }
+
+    function showcaseItemById(sourceId) {
+      return state.items.find(item => item.id === sourceId) || null;
+    }
+
+    function getShowcaseMetrics() {
+      const tileWidth = clamp(Number(controls.tileWidth.value) || 260, 160, 420);
+      return {
+        columns: clamp(Number(controls.columns.value) || 3, 1, 8),
+        gap: clamp(Number(controls.gap.value) || 24, 0, 80),
+        tileWidth,
+        tileHeight: Math.round(tileWidth * state.showcase.tileAspect),
+        boardPadding: state.showcase.boardPadding,
+        labelHeight: state.showcase.labelHeight
+      };
+    }
+
+    function sanitizeShowcaseItems() {
+      const validIds = new Set(state.items.map(item => item.id));
+      state.showcase.items = state.showcase.items.filter(item => validIds.has(item.sourceId));
+    }
+
+    function getContainedPlacement(img, width, height) {
+      const scale = Math.min(width / img.width, height / img.height);
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      return {
+        x: (width - drawWidth) / 2,
+        y: (height - drawHeight) / 2,
+        width: drawWidth,
+        height: drawHeight
+      };
+    }
+
+    function drawPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b1016';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const placement = getContainedPlacement(item.img, canvas.width, canvas.height);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
+    }
+
+    function renderThumbs() {
+      thumbs.innerHTML = '';
+
+      if (!state.items.length) {
+        thumbs.innerHTML = '<div class="hint">Noch keine Bilder geladen.</div>';
+        updateStats();
+        return;
+      }
+
+      state.items.forEach(item => {
+        const card = document.createElement('label');
+        card.className = `thumb${item.selected ? ' selected' : ''}`;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.selected;
+        checkbox.addEventListener('change', () => {
+          item.selected = checkbox.checked;
+          renderThumbs();
+          updateStats();
+        });
+
+        const preview = document.createElement('img');
+        preview.src = item.img.src;
+        preview.alt = item.name;
+
+        const meta = document.createElement('div');
+        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px</div>`;
+
+        card.appendChild(checkbox);
+        card.appendChild(preview);
+        card.appendChild(meta);
+        thumbs.appendChild(card);
+      });
+
+      updateStats();
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve({ file, img });
+            img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${file.name}`));
+            img.src = reader.result;
+          };
+          reader.onerror = () => reject(new Error(`Datei konnte nicht gelesen werden: ${file.name}`));
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      loaded.forEach(({ file, img }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img,
+          selected: true
+        });
+      });
+
+      renderThumbs();
+      renderShowcase();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function autoArrangeShowcase(announce = true) {
+      sanitizeShowcaseItems();
+
+      if (!state.showcase.items.length) {
+        renderShowcase();
+        if (announce) {
+          setStatus('Keine Bilder im Showcase');
+        }
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      state.showcase.items.forEach((entry, index) => {
+        const column = index % metrics.columns;
+        const row = Math.floor(index / metrics.columns);
+        entry.width = metrics.tileWidth;
+        entry.height = metrics.tileHeight;
+        entry.x = metrics.boardPadding + column * (metrics.tileWidth + metrics.gap);
+        entry.y = metrics.boardPadding + row * (metrics.tileHeight + metrics.gap + metrics.labelHeight);
+      });
+
+      renderShowcase();
+      if (announce) {
+        setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} ausgerichtet`);
+      }
+    }
+
+    function populateShowcase() {
+      const sourceItems = showcaseSourceItems();
+      if (!sourceItems.length) {
+        setStatus('Keine Bilder fuer Showcase ausgewaehlt');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      state.showcase.items = sourceItems.map(item => ({
+        id: crypto.randomUUID(),
+        sourceId: item.id,
+        x: 0,
+        y: 0,
+        width: metrics.tileWidth,
+        height: metrics.tileHeight
+      }));
+
+      autoArrangeShowcase(false);
+      updateStats();
+      setStatus(`Showcase mit ${state.showcase.items.length} Bild${state.showcase.items.length === 1 ? '' : 'ern'} gefuellt`);
+    }
+
+    function renderShowcaseCard(entry, canvas) {
+      const item = showcaseItemById(entry.sourceId);
+      if (!item) {
+        return;
+      }
+
+      canvas.width = Math.max(1, Math.round(entry.width * state.pixelRatio));
+      canvas.height = Math.max(1, Math.round(entry.height * state.pixelRatio));
+      drawPreview(item, canvas);
+    }
+
+    function renderShowcase() {
+      sanitizeShowcaseItems();
+      showcaseStageInner.innerHTML = '';
+
+      if (!state.showcase.items.length) {
+        showcaseStageInner.appendChild(showcaseEmpty);
+        showcaseEmpty.style.display = 'grid';
+        showcaseStageInner.style.width = '100%';
+        showcaseStageInner.style.height = '560px';
+        updateStats();
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      let maxRight = 0;
+      let maxBottom = 0;
+
+      state.showcase.items.forEach(entry => {
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) {
+          return;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'showcase-item';
+        card.dataset.showcaseId = entry.id;
+        card.style.left = `${entry.x}px`;
+        card.style.top = `${entry.y}px`;
+        card.style.width = `${entry.width}px`;
+        card.style.height = `${entry.height + metrics.labelHeight}px`;
+
+        const canvas = document.createElement('canvas');
+        canvas.style.height = `${entry.height}px`;
+
+        const label = document.createElement('div');
+        label.className = 'showcase-label';
+        label.textContent = item.name;
+
+        card.appendChild(canvas);
+        card.appendChild(label);
+        showcaseStageInner.appendChild(card);
+
+        renderShowcaseCard(entry, canvas);
+
+        maxRight = Math.max(maxRight, entry.x + entry.width);
+        maxBottom = Math.max(maxBottom, entry.y + entry.height + metrics.labelHeight);
+      });
+
+      showcaseEmpty.style.display = 'none';
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(560, maxBottom + metrics.boardPadding)}px`;
+      updateStats();
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function downloadCanvas(canvas, filenameBase, mime, quality) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL(mime, quality);
+      link.download = `${filenameBase}.${fileExtFromMime(mime)}`;
+      link.click();
+    }
+
+    function exportShowcasePng() {
+      sanitizeShowcaseItems();
+      if (!state.showcase.items.length) {
+        setStatus('Keine Bilder im Showcase zum Exportieren');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const bounds = state.showcase.items.reduce((acc, entry) => {
+        acc.right = Math.max(acc.right, entry.x + entry.width);
+        acc.bottom = Math.max(acc.bottom, entry.y + entry.height + metrics.labelHeight);
+        return acc;
+      }, { right: 0, bottom: 0 });
+
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(bounds.right + metrics.boardPadding));
+      out.height = Math.max(1, Math.round(bounds.bottom + metrics.boardPadding));
+
+      const ctx = out.getContext('2d');
+      if (controls.bg.value === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else if (controls.bg.value === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, out.width, out.height);
+      }
+
+      state.showcase.items.forEach(entry => {
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) {
+          return;
+        }
+
+        const tile = document.createElement('canvas');
+        tile.width = entry.width;
+        tile.height = entry.height;
+        drawPreview(item, tile);
+        ctx.drawImage(tile, entry.x, entry.y, entry.width, entry.height);
+
+        ctx.fillStyle = controls.bg.value === 'black' ? '#dbe3ee' : '#52606f';
+        ctx.font = '12px Segoe UI, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.name, entry.x + entry.width / 2, entry.y + entry.height + metrics.labelHeight / 2);
+      });
+
+      downloadCanvas(out, 'showcase-layout', 'image/png', 1);
+      setStatus(`Showcase als PNG exportiert (${state.showcase.items.length} Bilder)`);
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = true;
+      });
+      renderThumbs();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = false;
+      });
+      renderThumbs();
+      setStatus('Keine Bilder markiert');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      state.items = [];
+      state.showcase.items = [];
+      filesInput.value = '';
+      renderThumbs();
+      renderShowcase();
+      setStatus('Alle Bilder entfernt');
+    });
+
+    filesInput.addEventListener('change', async event => {
+      try {
+        await loadFiles(event.target.files);
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Bilder konnten nicht geladen werden');
+      }
+    });
+
+    [controls.gap, controls.tileWidth].forEach(control => {
+      control.addEventListener('input', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(false);
+        }
+      });
+    });
+
+    controls.columns.addEventListener('change', () => {
+      if (state.showcase.items.length) {
+        autoArrangeShowcase(true);
+      }
+    });
+
+    showcasePopulateBtn.addEventListener('click', populateShowcase);
+    showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
+    showcaseExportBtn.addEventListener('click', exportShowcasePng);
+
+    showcaseStage.addEventListener('pointerdown', event => {
+      const card = event.target.closest('.showcase-item');
+      if (!card) {
+        return;
+      }
+
+      const entry = state.showcase.items.find(item => item.id === card.dataset.showcaseId);
+      if (!entry) {
+        return;
+      }
+
+      event.preventDefault();
+      state.showcase.dragging = {
+        id: entry.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: entry.x,
+        top: entry.y,
+        card
+      };
+
+      card.classList.add('dragging');
+      card.setPointerCapture(event.pointerId);
+    });
+
+    showcaseStage.addEventListener('pointermove', event => {
+      if (!state.showcase.dragging) {
+        return;
+      }
+
+      const dragging = state.showcase.dragging;
+      const entry = state.showcase.items.find(item => item.id === dragging.id);
+      if (!entry) {
+        return;
+      }
+
+      entry.x = Math.max(0, dragging.left + (event.clientX - dragging.startX));
+      entry.y = Math.max(0, dragging.top + (event.clientY - dragging.startY));
+      dragging.card.style.left = `${entry.x}px`;
+      dragging.card.style.top = `${entry.y}px`;
+
+      const metrics = getShowcaseMetrics();
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.width + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(560, entry.y + entry.height + metrics.labelHeight + metrics.boardPadding)}px`;
+    });
+
+    function endShowcaseDrag(event) {
+      if (!state.showcase.dragging) {
+        return;
+      }
+
+      try {
+        state.showcase.dragging.card.releasePointerCapture(event.pointerId);
+      } catch (error) {}
+
+      state.showcase.dragging.card.classList.remove('dragging');
+      state.showcase.dragging = null;
+    }
+
+    showcaseStage.addEventListener('pointerup', endShowcaseDrag);
+    showcaseStage.addEventListener('pointercancel', endShowcaseDrag);
+
+    window.addEventListener('keydown', event => {
+      if (event.key.toLowerCase() !== 'r') {
+        return;
+      }
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) {
+        return;
+      }
+
+      event.preventDefault();
+      autoArrangeShowcase(true);
+    });
+
+    window.addEventListener('resize', () => {
+      if (state.showcase.items.length) {
+        renderShowcase();
+      }
+    });
+
+    updateLabels();
+    renderThumbs();
+    renderShowcase();
+  </script>
+</body>
+</html>
