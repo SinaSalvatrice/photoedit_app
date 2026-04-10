@@ -662,6 +662,12 @@
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const splitSelectedBtn = document.getElementById('splitSelectedBtn');
     const splitAllBtn = document.getElementById('splitAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: [],
@@ -669,6 +675,14 @@
       cropDrag: null,
       pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -676,6 +690,117 @@
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        targetMode: controls.targetMode.value,
+        ratio: controls.ratio.value,
+        columns: controls.columns.value,
+        padding: controls.padding.value,
+        format: formatEl.value,
+        quality: qualityEl.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.targetMode.value = snapshot.targetMode;
+      controls.ratio.value = snapshot.ratio;
+      controls.columns.value = snapshot.columns;
+      controls.padding.value = snapshot.padding;
+      formatEl.value = snapshot.format;
+      qualityEl.value = snapshot.quality;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          originalSrc: item.originalImg?.src || item.img.src,
+          selected: item.selected,
+          crop: { ...item.crop },
+          edit: { ...item.edit }
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        originalImg: restoreImage(item.originalSrc),
+        selected: item.selected,
+        crop: { ...item.crop },
+        edit: { ...item.edit }
+      }));
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      updateLabels();
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function ratioParts(ratioStr) {
@@ -1112,8 +1237,8 @@
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
-          img,
-          originalImg: img,
+          img: cacheImage(img),
+          originalImg: cacheImage(img),
           selected: true,
           crop: defaultCrop(),
           edit: defaultEdit()
@@ -1121,6 +1246,7 @@
       });
 
       renderGrid();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -1423,20 +1549,26 @@
 
     controls.padding.addEventListener('change', () => {
       syncActiveSquarePadding(targetItems(), true);
+      recordHistory();
     });
 
     controls.ratio.addEventListener('change', () => {
       updateLabels();
       renderGrid();
+      recordHistory();
     });
 
-    controls.columns.addEventListener('change', renderGrid);
+    controls.columns.addEventListener('change', () => {
+      renderGrid();
+      recordHistory();
+    });
 
     selectAllBtn.addEventListener('click', () => {
       state.items.forEach(item => {
         item.selected = true;
       });
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder markiert');
     });
 
@@ -1445,19 +1577,40 @@
         item.selected = false;
       });
       renderGrid();
+      recordHistory();
       setStatus('Markierung geloescht');
     });
 
-    clearBtn.addEventListener('click', clearAll);
-    applyBtn.addEventListener('click', applyGlobalValues);
-    fitBtn.addEventListener('click', fitTargets);
-    resetSelectedBtn.addEventListener('click', resetSelected);
-    squarePackBtn.addEventListener('click', () => applySquarePackToItems(targetItems()));
-    restoreOriginalBtn.addEventListener('click', () => restoreOriginalForItems(targetItems()));
+    clearBtn.addEventListener('click', () => {
+      clearAll();
+      recordHistory();
+    });
+    applyBtn.addEventListener('click', () => {
+      applyGlobalValues();
+      recordHistory();
+    });
+    fitBtn.addEventListener('click', () => {
+      fitTargets();
+      recordHistory();
+    });
+    resetSelectedBtn.addEventListener('click', () => {
+      resetSelected();
+      recordHistory();
+    });
+    squarePackBtn.addEventListener('click', () => {
+      applySquarePackToItems(targetItems());
+      recordHistory();
+    });
+    restoreOriginalBtn.addEventListener('click', () => {
+      restoreOriginalForItems(targetItems());
+      recordHistory();
+    });
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
     splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
     splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     imageGrid.addEventListener('change', event => {
       if (!event.target.matches('input[type="checkbox"]')) {
@@ -1472,6 +1625,7 @@
       item.selected = event.target.checked;
       event.target.closest('.card').classList.toggle('selected', item.selected);
       refreshStats();
+      recordHistory();
     });
 
     imageGrid.addEventListener('click', event => {
@@ -1492,21 +1646,25 @@
         item.edit.panX = 0;
         item.edit.panY = 0;
         renderGrid();
+        recordHistory();
         setStatus(`Eingepasst: ${item.name}`);
       }
 
       if (action === 'reset') {
         item.edit = defaultEdit();
         renderGrid();
+        recordHistory();
         setStatus(`Zurueckgesetzt: ${item.name}`);
       }
 
       if (action === 'square-pack') {
         applySquarePackToItems([item]);
+        recordHistory();
       }
 
       if (action === 'restore-original') {
         restoreOriginalForItems([item]);
+        recordHistory();
       }
 
       if (action === 'export') {
@@ -1640,6 +1798,7 @@
       } catch (error) {}
       state.dragging.canvas.style.cursor = 'grab';
       state.dragging = null;
+      recordHistory();
     }
 
     imageGrid.addEventListener('pointerup', endDrag);
@@ -1664,6 +1823,7 @@
       if (row) {
         row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
       }
+      recordHistory();
     }, { passive: false });
 
     window.addEventListener('resize', () => {
@@ -1673,8 +1833,24 @@
       }, 80);
     });
 
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
     updateLabels();
     renderGrid();
+    recordHistory();
   </script>
 </body>
 </html>

@@ -523,6 +523,12 @@
     const restoreBtn = document.getElementById('restoreBtn');
     const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: [],
@@ -532,6 +538,14 @@
         hasLoadedModel: false
       }
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 80
+    };
+    const imageCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -549,6 +563,102 @@
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: {
+          targetMode: controls.targetMode.value,
+          cutoutMode: controls.cutoutMode.value
+        },
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          originalSrc: item.originalImg.src,
+          selected: item.selected,
+          resultSrc: item.resultImg?.src || null
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      controls.targetMode.value = snapshot.controls.targetMode;
+      controls.cutoutMode.value = snapshot.controls.cutoutMode;
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        originalImg: restoreImage(item.originalSrc),
+        selected: item.selected,
+        resultBlob: null,
+        resultImg: item.resultSrc ? restoreImage(item.resultSrc) : null,
+        resultObjectUrl: item.resultSrc || null,
+        processing: false,
+        processingLabel: ''
+      }));
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      clearUserError();
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      const busy = state.items.some(item => item.processing);
+      undoBtn.disabled = historyState.past.length < 2 || busy;
+      redoBtn.disabled = historyState.future.length < 1 || busy;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring || state.items.some(item => item.processing)) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2 || state.items.some(item => item.processing)) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length || state.items.some(item => item.processing)) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function selectedItems() {
@@ -589,9 +699,7 @@
     }
 
     function releaseObjectUrl(url) {
-      if (url) {
-        URL.revokeObjectURL(url);
-      }
+      return url;
     }
 
     function releaseItemUrls(item) {
@@ -1000,7 +1108,7 @@
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
-          originalImg,
+          originalImg: cacheImage(originalImg),
           selected: true,
           resultBlob: null,
           resultImg: null,
@@ -1011,6 +1119,7 @@
       });
 
       renderGrid();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -1020,7 +1129,7 @@
       try {
         const resultImg = await loadImageElement(objectUrl);
         item.resultBlob = blob;
-        item.resultImg = resultImg;
+        item.resultImg = cacheImage(resultImg);
         item.resultObjectUrl = objectUrl;
       } catch (error) {
         URL.revokeObjectURL(objectUrl);
@@ -1068,11 +1177,13 @@
       }
 
       if (successCount && !failureCount) {
+        recordHistory();
         setStatus(`Hintergrund bei ${successCount} Bild${successCount === 1 ? '' : 'ern'} entfernt`);
         return;
       }
 
       if (successCount && failureCount) {
+        recordHistory();
         setStatus(`Freistellen teilweise abgeschlossen: ${successCount} ok, ${failureCount} fehlgeschlagen`);
         return;
       }
@@ -1099,6 +1210,7 @@
       });
 
       renderGrid();
+      recordHistory();
       setStatus(restored ? `${restored} Bild${restored === 1 ? '' : 'er'} auf Original gesetzt` : 'Auswahl ist bereits im Originalzustand');
     }
 
@@ -1112,16 +1224,23 @@
     }
 
     function exportItem(item) {
-      if (!item.resultBlob) {
+      if (!item.resultBlob && !item.resultImg) {
         setStatus(`Noch kein Ergebnis fuer ${item.name}`);
         return;
       }
       const base = item.name.replace(/\.[^.]+$/, '');
-      downloadBlob(item.resultBlob, `${base}-cutout.png`);
+      if (item.resultBlob) {
+        downloadBlob(item.resultBlob, `${base}-cutout.png`);
+        return;
+      }
+      const link = document.createElement('a');
+      link.href = item.resultImg.src;
+      link.download = `${base}-cutout.png`;
+      link.click();
     }
 
     async function exportItems(items) {
-      const exportable = items.filter(item => item.resultBlob);
+      const exportable = items.filter(item => item.resultBlob || item.resultImg);
       if (!exportable.length) {
         setStatus('Keine freigestellten Bilder zum Exportieren');
         return;
@@ -1141,6 +1260,7 @@
       filesInput.value = '';
       clearUserError();
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder entfernt');
     }
 
@@ -1157,6 +1277,7 @@
         item.selected = true;
       });
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder markiert');
     });
 
@@ -1165,10 +1286,13 @@
         item.selected = false;
       });
       renderGrid();
+      recordHistory();
       setStatus('Keine Bilder markiert');
     });
 
     clearBtn.addEventListener('click', clearAll);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     filesInput.addEventListener('change', async event => {
       try {
@@ -1195,6 +1319,10 @@
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
 
+    [controls.targetMode, controls.cutoutMode].forEach(control => {
+      control.addEventListener('change', recordHistory);
+    });
+
     imageGrid.addEventListener('change', event => {
       if (!event.target.matches('input[type="checkbox"]')) {
         return;
@@ -1206,6 +1334,7 @@
       item.selected = event.target.checked;
       event.target.closest('.card').classList.toggle('selected', item.selected);
       updateStats();
+      recordHistory();
     });
 
     imageGrid.addEventListener('click', event => {
@@ -1236,7 +1365,23 @@
       }
     });
 
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
     renderGrid();
+    recordHistory();
   </script>
 </body>
 </html>
