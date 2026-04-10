@@ -459,10 +459,24 @@
     const statCount = document.getElementById('statCount');
     const statParts = document.getElementById('statParts');
     const statusText = document.getElementById('statusText');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const state = {
       items: []
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 80
+    };
+    const imageCache = new Map();
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -470,6 +484,87 @@
 
     function setStatus(text) {
       statusText.textContent = text;
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function createSnapshot() {
+      return {
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.src
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        src: item.src,
+        img: restoreImage(item.src)
+      }));
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function escapeHtml(value) {
@@ -572,12 +667,13 @@
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
-          img,
+          img: cacheImage(img),
           src
         });
       });
 
       renderGrid();
+      recordHistory();
       setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -632,6 +728,7 @@
       state.items = [];
       filesInput.value = '';
       renderGrid();
+      recordHistory();
       setStatus('Alles gelöscht');
     }
 
@@ -644,6 +741,8 @@
     filesInput.addEventListener('change', event => loadFiles(event.target.files));
     exportAllBtn.addEventListener('click', exportAllImages);
     clearBtn.addEventListener('click', clearAll);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     imageGrid.addEventListener('click', async event => {
       const button = event.target.closest('button[data-action]');
@@ -659,8 +758,26 @@
       }
     });
 
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
     refreshStats();
     renderGrid();
+    recordHistory();
   </script>
 </body>
 </html>

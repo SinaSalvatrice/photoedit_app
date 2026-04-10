@@ -495,6 +495,12 @@
     const statLower = document.getElementById('statLower');
     const statNeutral = document.getElementById('statNeutral');
     const lowercaseRatioVal = document.getElementById('lowercaseRatioVal');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     const controls = {
       capHeight: document.getElementById('capHeight'),
@@ -510,6 +516,14 @@
       items: [],
       previewPixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
     };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -517,6 +531,116 @@
 
     function setStatus(text) {
       statusText.textContent = text;
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        capHeight: controls.capHeight.value,
+        lowercaseRatio: controls.lowercaseRatio.value,
+        alphaThreshold: controls.alphaThreshold.value,
+        topPadding: controls.topPadding.value,
+        bottomPadding: controls.bottomPadding.value,
+        sidePadding: controls.sidePadding.value,
+        exportBg: controls.exportBg.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.capHeight.value = snapshot.capHeight;
+      controls.lowercaseRatio.value = snapshot.lowercaseRatio;
+      controls.alphaThreshold.value = snapshot.alphaThreshold;
+      controls.topPadding.value = snapshot.topPadding;
+      controls.bottomPadding.value = snapshot.bottomPadding;
+      controls.sidePadding.value = snapshot.sidePadding;
+      controls.exportBg.value = snapshot.exportBg;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          inferredCase: item.inferredCase,
+          caseOverride: item.caseOverride,
+          alphaBounds: { ...item.alphaBounds }
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        inferredCase: item.inferredCase,
+        caseOverride: item.caseOverride,
+        alphaBounds: { ...item.alphaBounds }
+      }));
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
     }
 
     function escapeHtml(value) {
@@ -790,6 +914,7 @@
           item.caseOverride = select.value;
           updateSummary();
           renderGrid();
+          recordHistory();
           setStatus(`${item.name}: Fall auf ${select.options[select.selectedIndex].textContent} gesetzt`);
         });
 
@@ -828,7 +953,7 @@
         state.items.push({
           id: crypto.randomUUID(),
           name: file.name,
-          img,
+          img: cacheImage(img),
           inferredCase: inferCaseGroup(file.name),
           caseOverride: null,
           alphaBounds: getAlphaBounds(img, alphaThreshold)
@@ -836,6 +961,7 @@
       });
 
       renderGrid();
+      recordHistory();
       setStatus(`${loaded.length} Bild${loaded.length === 1 ? '' : 'er'} geladen`);
     }
 
@@ -856,6 +982,7 @@
         item.alphaBounds = getAlphaBounds(item.img, alphaThreshold);
       });
       renderGrid();
+      recordHistory();
       setStatus(`Bounds mit Alpha-Schwelle ${alphaThreshold} neu berechnet`);
     }
 
@@ -897,6 +1024,7 @@
       state.items = [];
       filesInput.value = '';
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder entfernt');
     }
 
@@ -920,26 +1048,40 @@
     reanalyzeBtn.addEventListener('click', reanalyzeBounds);
     clearBtn.addEventListener('click', clearAll);
     exportAllBtn.addEventListener('click', exportAllItems);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     [controls.capHeight, controls.topPadding, controls.bottomPadding, controls.sidePadding].forEach(control => {
       control.addEventListener('input', rerenderIfNeeded);
+      control.addEventListener('change', () => {
+        rerenderIfNeeded();
+        recordHistory();
+      });
     });
 
     controls.lowercaseRatio.addEventListener('input', () => {
       updateSummary();
       rerenderIfNeeded();
     });
+    controls.lowercaseRatio.addEventListener('change', () => {
+      updateSummary();
+      rerenderIfNeeded();
+      recordHistory();
+    });
 
     controls.exportBg.addEventListener('change', () => {
       if (state.items.length) {
         setStatus(`Export-Hintergrund: ${controls.exportBg.options[controls.exportBg.selectedIndex].textContent}`);
       }
+      recordHistory();
     });
 
     controls.alphaThreshold.addEventListener('change', () => {
       if (state.items.length) {
         reanalyzeBounds();
+        return;
       }
+      recordHistory();
     });
 
     window.addEventListener('resize', () => {
@@ -948,7 +1090,25 @@
       }
     });
 
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
     updateSummary();
+    recordHistory();
   </script>
 </body>
 </html>
