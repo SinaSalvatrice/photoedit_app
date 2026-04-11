@@ -1331,6 +1331,7 @@
     function setItemProcessing(item, active, label = '') {
       item.processing = active;
       item.processingLabel = active ? label : '';
+      syncHistoryButtons();
     }
 
     function dilateMask(mask, width, height, radius) {
@@ -2222,7 +2223,7 @@
       const metrics = getShowcaseMetrics();
       const bounds = state.showcase.items.reduce((acc, entry) => {
         acc.right = Math.max(acc.right, entry.x + entry.size);
-        acc.bottom = Math.max(acc.bottom, entry.y + entry.size + metrics.labelHeight);
+        acc.bottom = Math.max(acc.bottom, entry.y + entry.size);
         return acc;
       }, { right: 0, bottom: 0 });
 
@@ -2248,12 +2249,6 @@
         tileCanvas.height = entry.size;
         drawPreview(item, tileCanvas);
         ctx.drawImage(tileCanvas, entry.x, entry.y, entry.size, entry.size);
-
-        ctx.fillStyle = showcaseControls.bg.value === 'black' ? '#d9e1ea' : '#52606f';
-        ctx.font = '12px Segoe UI, Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.name, entry.x + entry.size / 2, entry.y + entry.size + metrics.labelHeight / 2);
       });
 
       downloadCanvas(out, 'showcase-layout', 'image/png', 1);
@@ -2692,6 +2687,7 @@
         if (state.showcase.items.length) {
           autoArrangeShowcase(true);
         }
+        recordHistory();
       });
     });
 
@@ -2699,11 +2695,15 @@
       if (state.showcase.items.length) {
         autoArrangeShowcase(true);
       }
+      recordHistory();
     });
 
     showcaseControls.bg.addEventListener('change', () => {
       renderShowcase();
+      recordHistory();
     });
+
+    showcaseControls.source.addEventListener('change', recordHistory);
 
     controls.padding.addEventListener('input', () => {
       syncActiveSquarePadding(targetItems(), false);
@@ -2711,26 +2711,31 @@
 
     controls.padding.addEventListener('change', () => {
       syncActiveSquarePadding(targetItems(), true);
+      recordHistory();
     });
 
     controls.ratio.addEventListener('change', () => {
       updateLabels();
       renderGrid();
+      recordHistory();
     });
 
     controls.columns.addEventListener('change', () => {
       renderGrid();
+      recordHistory();
     });
 
     selectAllBtn.addEventListener('click', () => {
       state.items.forEach(item => item.selected = true);
       renderGrid();
+      recordHistory();
       setStatus('Alle Bilder markiert');
     });
 
     selectNoneBtn.addEventListener('click', () => {
       state.items.forEach(item => item.selected = false);
       renderGrid();
+      recordHistory();
       setStatus('Markierung gelöscht');
     });
 
@@ -2762,9 +2767,17 @@
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
     splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
     splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
-    showcasePopulateBtn.addEventListener('click', populateShowcase);
-    showcaseArrangeBtn.addEventListener('click', () => autoArrangeShowcase(true));
+    showcasePopulateBtn.addEventListener('click', () => {
+      populateShowcase();
+      recordHistory();
+    });
+    showcaseArrangeBtn.addEventListener('click', () => {
+      autoArrangeShowcase(true);
+      recordHistory();
+    });
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
 
     imageGrid.addEventListener('change', evt => {
       if (!evt.target.matches('input[type="checkbox"]')) return;
@@ -2773,6 +2786,7 @@
       item.selected = evt.target.checked;
       evt.target.closest('.card').classList.toggle('selected', item.selected);
       refreshStats();
+      recordHistory();
     });
 
     imageGrid.addEventListener('click', evt => {
@@ -2789,12 +2803,14 @@
         item.edit.panX = 0;
         item.edit.panY = 0;
         renderGrid();
+        recordHistory();
         setStatus(`Eingepasst: ${item.name}`);
       }
 
       if (action === 'reset') {
         item.edit = defaultEdit();
         renderGrid();
+        recordHistory();
         setStatus(`Zurückgesetzt: ${item.name}`);
       }
 
@@ -2807,6 +2823,7 @@
 
       if (action === 'square-pack') {
         applySquarePackToItems([item]);
+        recordHistory();
       }
 
       if (action === 'enhance') {
@@ -2818,6 +2835,7 @@
 
       if (action === 'restore-original') {
         restoreOriginalForItems([item]);
+        recordHistory();
       }
 
       if (action === 'export') {
@@ -2928,6 +2946,7 @@
           state.cropDrag.overlay.releasePointerCapture(evt.pointerId);
         } catch (error) {}
         state.cropDrag = null;
+        recordHistory();
       }
 
       if (!state.dragging) return;
@@ -2936,6 +2955,7 @@
       } catch (e) {}
       state.dragging.canvas.style.cursor = 'grab';
       state.dragging = null;
+      recordHistory();
     }
 
     imageGrid.addEventListener('pointerup', endDrag);
@@ -2957,6 +2977,7 @@
       if (row) {
         row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
       }
+      recordHistory();
     }, { passive: false });
 
     showcaseStage.addEventListener('pointerdown', evt => {
@@ -3006,12 +3027,26 @@
 
       state.showcase.dragging.card.classList.remove('dragging');
       state.showcase.dragging = null;
+      recordHistory();
     }
 
     showcaseStage.addEventListener('pointerup', endShowcaseDrag);
     showcaseStage.addEventListener('pointercancel', endShowcaseDrag);
 
     window.addEventListener('keydown', evt => {
+      if ((evt.ctrlKey || evt.metaKey) && !/input|textarea|select/i.test(evt.target?.tagName || '')) {
+        const key = evt.key.toLowerCase();
+        if (key === 'z' && !evt.shiftKey) {
+          evt.preventDefault();
+          undoHistory();
+          return;
+        }
+        if (key === 'y' || (key === 'z' && evt.shiftKey)) {
+          evt.preventDefault();
+          redoHistory();
+          return;
+        }
+      }
       if (state.view !== 'showcase') return;
       if (evt.key.toLowerCase() !== 'r') return;
       if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
@@ -3032,6 +3067,7 @@
     setView('editor');
     renderGrid();
     renderShowcase();
+    recordHistory();
   </script>
 </body>
 </html>

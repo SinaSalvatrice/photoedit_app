@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crop + Resize Tool</title>
+  <style>
+    :root {
+      --bg: #0a1017;
+      --panel: rgba(20, 27, 37, 0.95);
+      --panel-2: #1b2430;
+      --line: #334357;
+      --text: #eef4fb;
+      --muted: #a7b4c4;
+      --accent: #d96c38;
+      --accent-2: #b25227;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(217, 108, 56, 0.14), transparent 28%),
+        linear-gradient(180deg, #071018 0%, #0d141d 100%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1680px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 1.18rem; margin-bottom: 8px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.48;
+      margin-bottom: 14px;
+    }
+
+    .controls, .stack { display: grid; gap: 12px; }
+    .row { display: grid; gap: 7px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    label { color: var(--muted); font-size: 0.87rem; }
+
+    input[type="file"], input[type="number"], input[type="range"], select { width: 100%; }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed #48586e;
+      color: var(--muted);
+    }
+
+    input[type="number"], select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #3a495d;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] { accent-color: var(--accent); }
+
+    button {
+      appearance: none;
+      border: 1px solid #ac5a30;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.94rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      border-color: #405166;
+      color: var(--text);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .hint {
+      border: 1px solid rgba(217, 108, 56, 0.22);
+      background: rgba(217, 108, 56, 0.08);
+      color: #f1d4c6;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .thumbs {
+      display: grid;
+      gap: 10px;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .thumb {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #334357;
+      border-radius: 16px;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .thumb.active {
+      border-color: var(--accent);
+      background: rgba(217, 108, 56, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(217, 108, 56, 0.18);
+    }
+
+    .thumb img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .thumb-title {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .thumb-meta {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .workspace {
+      min-height: calc(100vh - 32px);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .status {
+      border: 1px solid #37475b;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .workspace-body {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      align-items: start;
+    }
+
+    .preview-panel, .detail-panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .preview-shell {
+      position: relative;
+      min-height: 620px;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        #0b1118;
+      background-position: 0 0, 16px 16px;
+      background-size: 32px 32px;
+    }
+
+    .preview-shell canvas {
+      width: 100%;
+      height: 620px;
+      display: block;
+      cursor: grab;
+    }
+
+    .preview-shell canvas.dragging { cursor: grabbing; }
+
+    .empty {
+      min-height: 620px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .detail-panel {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stat {
+      border: 1px solid #334357;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .stat .k {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .stat .v {
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; max-height: none; }
+      .workspace-body { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 12px; }
+      .two { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+      .preview-shell, .preview-shell canvas, .empty { min-height: 420px; height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Crop + Resize Tool</h1>
+        <p class="sub">Ein sauberes Tool fuer Beschnitt und exakte Zielgroessen. Bild laden, Ausschnitt verschieben oder zoomen, dann als neue Groesse exportieren.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="undoBtn" class="secondary" type="button">Undo</button>
+            <button id="redoBtn" class="secondary" type="button">Redo</button>
+            <button id="resetBtn" class="secondary" type="button">Reset Bild</button>
+            <button id="clearBtn" class="secondary" type="button">Alles entfernen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Ausgabe</h2>
+        <div class="stack">
+          <div class="two">
+            <div class="row">
+              <label for="outputWidth">Breite</label>
+              <input id="outputWidth" type="number" min="1" max="12000" step="1" value="1024" />
+            </div>
+
+            <div class="row">
+              <label for="outputHeight">Hoehe</label>
+              <input id="outputHeight" type="number" min="1" max="12000" step="1" value="1024" />
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="aspectRatio">Crop-Ratio</label>
+            <select id="aspectRatio">
+              <option value="free">Frei</option>
+              <option value="1:1">1:1</option>
+              <option value="4:5">4:5</option>
+              <option value="5:4">5:4</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="3:2">3:2</option>
+              <option value="2:3">2:3</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label for="fitMode">Bild in Rahmen</label>
+            <select id="fitMode">
+              <option value="cover">Cover</option>
+              <option value="contain">Contain</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label for="bgFill">Hintergrund</label>
+            <select id="bgFill">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiss</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="zoomRange">Zoom</label><span id="zoomValue">100 %</span></div>
+            <input id="zoomRange" type="range" min="20" max="400" value="100" />
+          </div>
+
+          <div class="button-row">
+            <button id="exportCurrentBtn">Aktuelles Bild exportieren</button>
+            <button id="exportAllBtn" class="secondary">Alle exportieren</button>
+          </div>
+
+          <div class="hint">Mit gedrueckter Maus ziehst du das Bild im Crop-Rahmen. Mit dem Mausrad oder dem Zoom-Regler vergroesserst oder verkleinerst du den Ausschnitt.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Bilder</h2>
+        <div id="thumbs" class="thumbs"></div>
+      </div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="topbar">
+        <div>
+          <h2>Preview</h2>
+          <p class="sub" style="margin: 6px 0 0 0;">Die orange Umrandung zeigt den finalen Export-Rahmen. Die Preview entspricht dem Beschnitt, nicht nur der Dateigroesse.</p>
+        </div>
+
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div class="workspace-body">
+        <div class="preview-panel">
+          <div id="previewShell" class="preview-shell">
+            <div id="emptyState" class="empty">Noch kein Bild geladen. Lade ein oder mehrere Bilder und waehle links das aktive Motiv.</div>
+            <canvas id="previewCanvas"></canvas>
+          </div>
+        </div>
+
+        <aside class="detail-panel">
+          <div class="stat">
+            <div class="k">Aktiv</div>
+            <div id="activeName" class="v">-</div>
+          </div>
+          <div class="stat">
+            <div class="k">Original</div>
+            <div id="activeMeta" class="v">-</div>
+          </div>
+          <div class="stat">
+            <div class="k">Export</div>
+            <div id="exportMeta" class="v">1024 x 1024</div>
+          </div>
+          <div class="stat">
+            <div class="k">Pan</div>
+            <div id="panMeta" class="v">x 0 / y 0</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportCurrentBtn = document.getElementById('exportCurrentBtn');
+    const exportAllBtn = document.getElementById('exportAllBtn');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewShell = document.getElementById('previewShell');
+    const emptyState = document.getElementById('emptyState');
+    const thumbs = document.getElementById('thumbs');
+    const statusText = document.getElementById('statusText');
+    const activeName = document.getElementById('activeName');
+    const activeMeta = document.getElementById('activeMeta');
+    const exportMeta = document.getElementById('exportMeta');
+    const panMeta = document.getElementById('panMeta');
+    const zoomValue = document.getElementById('zoomValue');
+
+    const controls = {
+      outputWidth: document.getElementById('outputWidth'),
+      outputHeight: document.getElementById('outputHeight'),
+      aspectRatio: document.getElementById('aspectRatio'),
+      fitMode: document.getElementById('fitMode'),
+      bgFill: document.getElementById('bgFill'),
+      zoomRange: document.getElementById('zoomRange')
+    };
+
+    const state = {
+      items: [],
+      activeId: null,
+      dragging: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function fileBase(name) {
+      return name.replace(/\.[^.]+$/, '');
+    }
+
+    function cacheImage(img) {
+      if (img?.src) imageCache.set(img.src, img);
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) return imageCache.get(src);
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function activeItem() {
+      return state.items.find(item => item.id === state.activeId) || null;
+    }
+
+    function controlSnapshot() {
+      return {
+        outputWidth: controls.outputWidth.value,
+        outputHeight: controls.outputHeight.value,
+        aspectRatio: controls.aspectRatio.value,
+        fitMode: controls.fitMode.value,
+        bgFill: controls.bgFill.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.outputWidth.value = snapshot.outputWidth;
+      controls.outputHeight.value = snapshot.outputHeight;
+      controls.aspectRatio.value = snapshot.aspectRatio;
+      controls.fitMode.value = snapshot.fitMode;
+      controls.bgFill.value = snapshot.bgFill;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        activeId: state.activeId,
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.src,
+          zoom: item.zoom,
+          panX: item.panX,
+          panY: item.panY
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        src: item.src,
+        img: restoreImage(item.src),
+        zoom: item.zoom,
+        panX: item.panX,
+        panY: item.panY
+      }));
+      state.activeId = snapshot.activeId;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      syncZoomUi();
+      renderThumbs();
+      drawPreview();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) historyState.past.shift();
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
+    }
+
+    function ratioParts() {
+      if (controls.aspectRatio.value === 'free') {
+        return {
+          w: clamp(Number(controls.outputWidth.value) || 1, 1, 12000),
+          h: clamp(Number(controls.outputHeight.value) || 1, 1, 12000)
+        };
+      }
+      const parts = controls.aspectRatio.value.split(':').map(Number);
+      return { w: parts[0] || 1, h: parts[1] || 1 };
+    }
+
+    function syncZoomUi() {
+      const item = activeItem();
+      const zoom = item ? item.zoom : 100;
+      controls.zoomRange.value = String(clamp(Math.round(zoom), 20, 400));
+      zoomValue.textContent = `${Math.round(zoom)} %`;
+    }
+
+    function updateDetailPanel() {
+      const item = activeItem();
+      activeName.textContent = item ? item.name : '-';
+      activeMeta.textContent = item ? `${item.img.width} x ${item.img.height} px` : '-';
+      exportMeta.textContent = `${controls.outputWidth.value} x ${controls.outputHeight.value} px`;
+      panMeta.textContent = item ? `x ${Math.round(item.panX)} / y ${Math.round(item.panY)}` : 'x 0 / y 0';
+      syncZoomUi();
+      exportCurrentBtn.disabled = !item;
+      exportAllBtn.disabled = !state.items.length;
+      resetBtn.disabled = !item;
+      clearBtn.disabled = !state.items.length;
+    }
+
+    function renderThumbs() {
+      thumbs.innerHTML = '';
+      if (!state.items.length) {
+        thumbs.innerHTML = '<div class="hint">Noch keine Bilder geladen.</div>';
+        updateDetailPanel();
+        return;
+      }
+
+      state.items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = `thumb${item.id === state.activeId ? ' active' : ''}`;
+        el.dataset.id = item.id;
+        el.innerHTML = `
+          <img src="${item.src}" alt="${escapeHtml(item.name)}" />
+          <div>
+            <div class="thumb-title">${escapeHtml(item.name)}</div>
+            <div class="thumb-meta">${item.img.width} x ${item.img.height} px</div>
+          </div>
+        `;
+        thumbs.appendChild(el);
+      });
+
+      updateDetailPanel();
+    }
+
+    function getFrameRect(canvasWidth, canvasHeight) {
+      const ratio = ratioParts();
+      const maxWidth = canvasWidth * 0.82;
+      const maxHeight = canvasHeight * 0.82;
+      const scale = Math.min(maxWidth / ratio.w, maxHeight / ratio.h);
+      const width = ratio.w * scale;
+      const height = ratio.h * scale;
+      return {
+        x: (canvasWidth - width) / 2,
+        y: (canvasHeight - height) / 2,
+        width,
+        height
+      };
+    }
+
+    function getPlacement(item, frame) {
+      const baseScale = controls.fitMode.value === 'contain'
+        ? Math.min(frame.width / item.img.width, frame.height / item.img.height)
+        : Math.max(frame.width / item.img.width, frame.height / item.img.height);
+      const scale = baseScale * (item.zoom / 100);
+      const drawW = item.img.width * scale;
+      const drawH = item.img.height * scale;
+      const x = frame.x + (frame.width - drawW) / 2 + item.panX;
+      const y = frame.y + (frame.height - drawH) / 2 + item.panY;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function drawPreview() {
+      const item = activeItem();
+      const ratio = state.pixelRatio;
+      const width = Math.max(1, Math.round(previewCanvas.clientWidth * ratio));
+      const height = Math.max(1, Math.round(previewCanvas.clientHeight * ratio));
+      if (previewCanvas.width !== width) previewCanvas.width = width;
+      if (previewCanvas.height !== height) previewCanvas.height = height;
+
+      const ctx = previewCanvas.getContext('2d');
+      ctx.clearRect(0, 0, width, height);
+      previewCanvas.classList.toggle('dragging', Boolean(state.dragging));
+      emptyState.style.display = item ? 'none' : 'grid';
+
+      if (!item) {
+        updateDetailPanel();
+        return;
+      }
+
+      const frame = getFrameRect(width, height);
+      const placement = getPlacement(item, frame);
+
+      ctx.fillStyle = 'rgba(0,0,0,0.42)';
+      ctx.fillRect(0, 0, width, frame.y);
+      ctx.fillRect(0, frame.y + frame.height, width, height - frame.y - frame.height);
+      ctx.fillRect(0, frame.y, frame.x, frame.height);
+      ctx.fillRect(frame.x + frame.width, frame.y, width - frame.x - frame.width, frame.height);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(frame.x, frame.y, frame.width, frame.height);
+      ctx.clip();
+
+      if (controls.bgFill.value === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+      } else if (controls.bgFill.value === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+      }
+
+      ctx.drawImage(item.img, placement.x, placement.y, placement.drawW, placement.drawH);
+      ctx.restore();
+
+      ctx.strokeStyle = '#d96c38';
+      ctx.lineWidth = Math.max(2, ratio * 1.25);
+      ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+
+      ctx.setLineDash([10 * ratio, 8 * ratio]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.moveTo(frame.x + frame.width / 3, frame.y);
+      ctx.lineTo(frame.x + frame.width / 3, frame.y + frame.height);
+      ctx.moveTo(frame.x + frame.width * 2 / 3, frame.y);
+      ctx.lineTo(frame.x + frame.width * 2 / 3, frame.y + frame.height);
+      ctx.moveTo(frame.x, frame.y + frame.height / 3);
+      ctx.lineTo(frame.x + frame.width, frame.y + frame.height / 3);
+      ctx.moveTo(frame.x, frame.y + frame.height * 2 / 3);
+      ctx.lineTo(frame.x + frame.width, frame.y + frame.height * 2 / 3);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      updateDetailPanel();
+    }
+
+    function getCanvasPoint(event) {
+      const rect = previewCanvas.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) * (previewCanvas.width / rect.width),
+        y: (event.clientY - rect.top) * (previewCanvas.height / rect.height)
+      };
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const loaded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve({ file, src: reader.result, img });
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })));
+
+      loaded.forEach(({ file, src, img }) => {
+        const id = crypto.randomUUID();
+        state.items.push({
+          id,
+          name: file.name,
+          src,
+          img: cacheImage(img),
+          zoom: 100,
+          panX: 0,
+          panY: 0
+        });
+        if (!state.activeId) state.activeId = id;
+      });
+
+      renderThumbs();
+      drawPreview();
+      recordHistory();
+      setStatus(`${loaded.length} Bild${loaded.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function resetActive() {
+      const item = activeItem();
+      if (!item) return;
+      item.zoom = 100;
+      item.panX = 0;
+      item.panY = 0;
+      renderThumbs();
+      drawPreview();
+      recordHistory();
+      setStatus(`Zurueckgesetzt: ${item.name}`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      state.activeId = null;
+      filesInput.value = '';
+      renderThumbs();
+      drawPreview();
+      recordHistory();
+      setStatus('Alles entfernt');
+    }
+
+    function setActive(id) {
+      state.activeId = id;
+      renderThumbs();
+      drawPreview();
+      recordHistory();
+    }
+
+    function buildExportCanvas(item) {
+      const width = clamp(Number(controls.outputWidth.value) || 1, 1, 12000);
+      const height = clamp(Number(controls.outputHeight.value) || 1, 1, 12000);
+      const out = document.createElement('canvas');
+      out.width = width;
+      out.height = height;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      if (controls.bgFill.value === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+      } else if (controls.bgFill.value === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      const frame = { x: 0, y: 0, width, height };
+      const placement = getPlacement(item, frame);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.drawW, placement.drawH);
+      return out;
+    }
+
+    function downloadCanvas(canvas, filenameBase) {
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `${filenameBase}.png`;
+      a.click();
+    }
+
+    function exportCurrent() {
+      const item = activeItem();
+      if (!item) {
+        setStatus('Kein Bild aktiv');
+        return;
+      }
+      downloadCanvas(buildExportCanvas(item), `${fileBase(item.name)}-cropped`);
+      setStatus(`Exportiert: ${item.name}`);
+    }
+
+    async function exportAll() {
+      if (!state.items.length) {
+        setStatus('Keine Bilder geladen');
+        return;
+      }
+      for (const item of state.items) {
+        downloadCanvas(buildExportCanvas(item), `${fileBase(item.name)}-cropped`);
+        await new Promise(resolve => setTimeout(resolve, 180));
+      }
+      setStatus(`${state.items.length} Bilder exportiert`);
+    }
+
+    filesInput.addEventListener('change', event => {
+      loadFiles(event.target.files).catch(error => {
+        console.error(error);
+        setStatus('Bilder konnten nicht geladen werden');
+      });
+    });
+
+    thumbs.addEventListener('click', event => {
+      const thumb = event.target.closest('.thumb');
+      if (!thumb) return;
+      setActive(thumb.dataset.id);
+    });
+
+    [controls.outputWidth, controls.outputHeight, controls.aspectRatio, controls.fitMode, controls.bgFill].forEach(control => {
+      control.addEventListener('change', () => {
+        drawPreview();
+        recordHistory();
+      });
+    });
+
+    controls.zoomRange.addEventListener('input', () => {
+      const item = activeItem();
+      if (!item) return;
+      item.zoom = Number(controls.zoomRange.value);
+      drawPreview();
+    });
+    controls.zoomRange.addEventListener('change', () => {
+      const item = activeItem();
+      if (!item) return;
+      item.zoom = Number(controls.zoomRange.value);
+      drawPreview();
+      recordHistory();
+    });
+
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
+    resetBtn.addEventListener('click', resetActive);
+    clearBtn.addEventListener('click', clearAll);
+    exportCurrentBtn.addEventListener('click', exportCurrent);
+    exportAllBtn.addEventListener('click', exportAll);
+
+    previewCanvas.addEventListener('pointerdown', event => {
+      const item = activeItem();
+      if (!item) return;
+      event.preventDefault();
+      const point = getCanvasPoint(event);
+      state.dragging = {
+        id: item.id,
+        startX: point.x,
+        startY: point.y,
+        panX: item.panX,
+        panY: item.panY
+      };
+      previewCanvas.setPointerCapture(event.pointerId);
+      previewCanvas.classList.add('dragging');
+    });
+
+    previewCanvas.addEventListener('pointermove', event => {
+      if (!state.dragging) return;
+      const item = activeItem();
+      if (!item || item.id !== state.dragging.id) return;
+      const point = getCanvasPoint(event);
+      item.panX = state.dragging.panX + (point.x - state.dragging.startX);
+      item.panY = state.dragging.panY + (point.y - state.dragging.startY);
+      drawPreview();
+    });
+
+    function endDrag(event) {
+      if (!state.dragging) return;
+      try {
+        previewCanvas.releasePointerCapture(event.pointerId);
+      } catch (error) {}
+      previewCanvas.classList.remove('dragging');
+      state.dragging = null;
+      recordHistory();
+    }
+
+    previewCanvas.addEventListener('pointerup', endDrag);
+    previewCanvas.addEventListener('pointercancel', endDrag);
+
+    previewCanvas.addEventListener('wheel', event => {
+      const item = activeItem();
+      if (!item) return;
+      event.preventDefault();
+      item.zoom = clamp(item.zoom + (event.deltaY < 0 ? 6 : -6), 20, 400);
+      drawPreview();
+      recordHistory();
+    }, { passive: false });
+
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
+    window.addEventListener('resize', drawPreview);
+
+    renderThumbs();
+    drawPreview();
+    recordHistory();
+  </script>
+</body>
+</html>

@@ -710,6 +710,7 @@
     function setItemProcessing(item, active, label = '') {
       item.processing = active;
       item.processingLabel = active ? label : '';
+      syncHistoryButtons();
     }
 
     function dilateMask(mask, width, height, radius) {

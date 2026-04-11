@@ -1045,10 +1045,10 @@
       const metrics = getShowcaseMetrics();
       const neededRows = Math.max(metrics.rows, Math.ceil(state.showcase.items.length / metrics.columns));
       const gridRight = metrics.boardPadding + (metrics.columns * metrics.tileWidth) + (Math.max(0, metrics.columns - 1) * metrics.gap);
-      const gridBottom = metrics.boardPadding + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap) + (neededRows * metrics.labelHeight);
+      const gridBottom = metrics.boardPadding + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap);
       const bounds = state.showcase.items.reduce((acc, entry) => {
         acc.right = Math.max(acc.right, entry.x + entry.width);
-        acc.bottom = Math.max(acc.bottom, entry.y + entry.height + metrics.labelHeight);
+        acc.bottom = Math.max(acc.bottom, entry.y + entry.height);
         return acc;
       }, { right: gridRight, bottom: gridBottom });
 
@@ -1080,12 +1080,6 @@
         tile.height = entry.height;
         drawPreview(item, tile);
         ctx.drawImage(tile, entry.x, entry.y, entry.width, entry.height);
-
-        ctx.fillStyle = controls.bg.value === 'black' ? '#dbe3ee' : '#52606f';
-        ctx.font = '12px Segoe UI, Arial, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.name, entry.x + entry.width / 2, entry.y + entry.height + metrics.labelHeight / 2);
       });
 
       downloadCanvas(out, 'showcase-layout', 'image/png', 1);
@@ -1302,6 +1296,7 @@
 
       dragging.card.classList.remove('dragging');
       state.showcase.dragging = null;
+      recordHistory();
     }
 
     showcaseStage.addEventListener('pointerup', endShowcaseDrag);
