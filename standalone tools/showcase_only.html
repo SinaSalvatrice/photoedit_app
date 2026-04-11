@@ -1205,8 +1205,14 @@
         return;
       }
 
+      const sourceItem = showcaseItemById(entry.sourceId);
+      if (!sourceItem) {
+        setStatus('Die aktive Buchstaben-Kachel konnte nicht gefunden werden');
+        return;
+      }
+
       const metrics = getShowcaseMetrics();
-      const duplicate = createShowcaseEntryFromItem(showcaseItemById(entry.sourceId), metrics, {
+      const duplicate = createShowcaseEntryFromItem(sourceItem, metrics, {
         scale: entry.scale || 1
       });
       const index = state.showcase.items.findIndex(item => item.id === entry.id);
