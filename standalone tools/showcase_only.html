@@ -332,6 +332,11 @@
       border-color: rgba(110, 161, 255, 0.8);
     }
 
+    .showcase-item.selected {
+      box-shadow: 0 0 0 2px rgba(110, 161, 255, 0.65), 0 20px 42px rgba(0, 0, 0, 0.28);
+      border-color: rgba(110, 161, 255, 0.72);
+    }
+
     .showcase-item canvas {
       display: block;
       width: 100%;
@@ -477,8 +482,17 @@
             <button id="showcaseAddEmptyBtn" class="secondary">Leere Kachel hinzufuegen</button>
           </div>
 
+          <div class="row">
+            <div class="value-row"><label for="showcaseImageScale">Aktive Bildgroesse</label><span id="showcaseImageScaleVal">-</span></div>
+            <input id="showcaseImageScale" type="range" min="40" max="260" value="100" disabled />
+          </div>
+
+          <div class="button-row">
+            <button id="showcaseAutoSizeBtn" class="secondary">Motive angleichen</button>
+          </div>
+
           <div class="hint">
-            Die Kacheln sind absichtlich etwas breiter als hoch, damit einzelne Motive weniger vertikal gestreckt wirken. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
+            Kachel anklicken, dann die Bildgroesse einzeln anpassen oder automatisch angleichen. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
           </div>
 
         </div>
@@ -542,13 +556,15 @@
       rows: document.getElementById('showcaseRows'),
       gap: document.getElementById('showcaseGap'),
       tileWidth: document.getElementById('showcaseTileWidth'),
+      imageScale: document.getElementById('showcaseImageScale'),
       bg: document.getElementById('showcaseBg'),
       emptyCount: document.getElementById('showcaseEmptyCount')
     };
 
     const labels = {
       gap: document.getElementById('showcaseGapVal'),
-      tileWidth: document.getElementById('showcaseTileWidthVal')
+      tileWidth: document.getElementById('showcaseTileWidthVal'),
+      imageScale: document.getElementById('showcaseImageScaleVal')
     };
 
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -558,6 +574,7 @@
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
     const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
+    const showcaseAutoSizeBtn = document.getElementById('showcaseAutoSizeBtn');
     const historyRow = document.createElement('div');
     historyRow.className = 'button-row';
     historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
@@ -574,7 +591,8 @@
         boardPadding: 28,
         tileAspect: 0.84,
         labelHeight: 34,
-        emptyCounter: 0
+        emptyCounter: 0,
+        selectedId: null
       }
     };
     const historyState = {
@@ -585,6 +603,7 @@
       limit: 100
     };
     const imageCache = new Map();
+    const subjectBoundsCache = new Map();
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -661,6 +680,7 @@
       }));
       state.showcase.items = (snapshot.showcase?.items || []).map(entry => ({ ...entry }));
       state.showcase.emptyCounter = snapshot.showcase?.emptyCounter || 0;
+      state.showcase.selectedId = null;
       historyState.lastKey = JSON.stringify(snapshot);
       filesInput.value = '';
       updateLabels();
@@ -713,6 +733,26 @@
       labels.tileWidth.textContent = `${controls.tileWidth.value} px`;
     }
 
+    function activeShowcaseEntry() {
+      return state.showcase.items.find(entry => entry.id === state.showcase.selectedId) || null;
+    }
+
+    function syncActiveTileControls() {
+      const entry = activeShowcaseEntry();
+      const isEditable = entry && !isEmptyShowcaseEntry(entry);
+
+      controls.imageScale.disabled = !isEditable;
+      if (!isEditable) {
+        controls.imageScale.value = '100';
+        labels.imageScale.textContent = '-';
+        return;
+      }
+
+      const percent = clamp(Math.round((entry.scale || 1) * 100), 40, 260);
+      controls.imageScale.value = String(percent);
+      labels.imageScale.textContent = `${percent} %`;
+    }
+
     function updateStats() {
       statCount.textContent = String(state.items.length);
       statSelected.textContent = String(state.items.filter(item => item.selected).length);
@@ -745,7 +785,17 @@
         x: 0,
         y: 0,
         width: metrics.tileWidth,
-        height: metrics.tileHeight
+        height: metrics.tileHeight,
+        scale: 1
+      };
+    }
+
+    function getGridSlotPosition(index, metrics = getShowcaseMetrics()) {
+      const column = index % metrics.columns;
+      const row = Math.floor(index / metrics.columns);
+      return {
+        x: metrics.boardPadding + column * (metrics.tileWidth + metrics.gap),
+        y: metrics.boardPadding + row * (metrics.tileHeight + metrics.gap + metrics.labelHeight)
       };
     }
 
@@ -766,12 +816,81 @@
     function sanitizeShowcaseItems() {
       const validIds = new Set(state.items.map(item => item.id));
       state.showcase.items = state.showcase.items.filter(item => item.isEmpty || validIds.has(item.sourceId));
+      if (!state.showcase.items.some(entry => entry.id === state.showcase.selectedId && !isEmptyShowcaseEntry(entry))) {
+        state.showcase.selectedId = null;
+      }
     }
 
-    function getContainedPlacement(img, width, height) {
-      const scale = Math.min(width / img.width, height / img.height);
-      const drawWidth = img.width * scale;
-      const drawHeight = img.height * scale;
+    function getVisibleBounds(img) {
+      if (!img?.src) {
+        return null;
+      }
+
+      if (subjectBoundsCache.has(img.src)) {
+        return subjectBoundsCache.get(img.src);
+      }
+
+      try {
+        const sourceWidth = img.naturalWidth || img.width;
+        const sourceHeight = img.naturalHeight || img.height;
+        const maxSide = 512;
+        const shrink = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(sourceWidth * shrink));
+        canvas.height = Math.max(1, Math.round(sourceHeight * shrink));
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let minX = canvas.width;
+        let minY = canvas.height;
+        let maxX = -1;
+        let maxY = -1;
+
+        for (let y = 0; y < canvas.height; y += 1) {
+          for (let x = 0; x < canvas.width; x += 1) {
+            const alpha = pixels[(y * canvas.width + x) * 4 + 3];
+            if (alpha < 16) {
+              continue;
+            }
+
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+
+        const bounds = maxX >= minX && maxY >= minY
+          ? {
+              found: true,
+              widthRatio: (maxX - minX + 1) / canvas.width,
+              heightRatio: (maxY - minY + 1) / canvas.height
+            }
+          : {
+              found: false,
+              widthRatio: 1,
+              heightRatio: 1
+            };
+
+        subjectBoundsCache.set(img.src, bounds);
+        return bounds;
+      } catch (error) {
+        const fallback = {
+          found: false,
+          widthRatio: 1,
+          heightRatio: 1
+        };
+        subjectBoundsCache.set(img.src, fallback);
+        return fallback;
+      }
+    }
+
+    function getContainedPlacement(img, width, height, imageScale = 1) {
+      const baseScale = Math.min(width / img.width, height / img.height);
+      const drawWidth = img.width * baseScale * imageScale;
+      const drawHeight = img.height * baseScale * imageScale;
       return {
         x: (width - drawWidth) / 2,
         y: (height - drawHeight) / 2,
@@ -780,13 +899,19 @@
       };
     }
 
-    function drawPreview(item, canvas) {
+    function drawPreview(item, canvas, options = {}) {
+      const {
+        background = '#0b1016',
+        scale = 1
+      } = options;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#0b1016';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (background) {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
-      const placement = getContainedPlacement(item.img, canvas.width, canvas.height);
+      const placement = getContainedPlacement(item.img, canvas.width, canvas.height, scale);
       ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
     }
 
@@ -886,12 +1011,12 @@
 
       const metrics = getShowcaseMetrics();
       state.showcase.items.forEach((entry, index) => {
-        const column = index % metrics.columns;
-        const row = Math.floor(index / metrics.columns);
+        const slot = getGridSlotPosition(index, metrics);
         entry.width = metrics.tileWidth;
         entry.height = metrics.tileHeight;
-        entry.x = metrics.boardPadding + column * (metrics.tileWidth + metrics.gap);
-        entry.y = metrics.boardPadding + row * (metrics.tileHeight + metrics.gap + metrics.labelHeight);
+        entry.x = slot.x;
+        entry.y = slot.y;
+        entry.scale = entry.scale || 1;
       });
 
       renderShowcase();
@@ -919,8 +1044,10 @@
         x: 0,
         y: 0,
         width: metrics.tileWidth,
-        height: metrics.tileHeight
+        height: metrics.tileHeight,
+        scale: 1
       }));
+      state.showcase.selectedId = null;
 
       autoArrangeShowcase(false);
       updateStats();
@@ -962,7 +1089,9 @@
         return;
       }
 
-      drawPreview(item, canvas);
+      drawPreview(item, canvas, {
+        scale: entry.scale || 1
+      });
     }
 
     function renderShowcase() {
@@ -975,6 +1104,7 @@
         showcaseStageInner.style.width = '100%';
         showcaseStageInner.style.height = '560px';
         updateStats();
+        syncActiveTileControls();
         return;
       }
 
@@ -992,7 +1122,7 @@
         }
 
         const card = document.createElement('div');
-        card.className = `showcase-item${isEmptyShowcaseEntry(entry) ? ' is-empty' : ''}`;
+        card.className = `showcase-item${isEmptyShowcaseEntry(entry) ? ' is-empty' : ''}${entry.id === state.showcase.selectedId && !isEmptyShowcaseEntry(entry) ? ' selected' : ''}`;
         card.dataset.showcaseId = entry.id;
         card.style.left = `${entry.x}px`;
         card.style.top = `${entry.y}px`;
@@ -1020,6 +1150,7 @@
       showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, gridWidth, maxRight + metrics.boardPadding)}px`;
       showcaseStageInner.style.height = `${Math.max(560, gridHeight, maxBottom + metrics.boardPadding)}px`;
       updateStats();
+      syncActiveTileControls();
     }
 
     function fileExtFromMime(mime) {
@@ -1078,7 +1209,10 @@
         const tile = document.createElement('canvas');
         tile.width = entry.width;
         tile.height = entry.height;
-        drawPreview(item, tile);
+        drawPreview(item, tile, {
+          background: null,
+          scale: entry.scale || 1
+        });
         ctx.drawImage(tile, entry.x, entry.y, entry.width, entry.height);
       });
 
@@ -1089,14 +1223,68 @@
     function addEmptyTiles() {
       const count = clamp(Number(controls.emptyCount.value) || 1, 1, 24);
       const metrics = getShowcaseMetrics();
+      const startIndex = state.showcase.items.length;
       for (let index = 0; index < count; index += 1) {
-        state.showcase.items.push(createEmptyShowcaseEntry(metrics));
+        const entry = createEmptyShowcaseEntry(metrics);
+        const slot = getGridSlotPosition(startIndex + index, metrics);
+        entry.x = slot.x;
+        entry.y = slot.y;
+        state.showcase.items.push(entry);
       }
 
-      autoArrangeShowcase(false);
+      renderShowcase();
       updateStats();
       recordHistory();
       setStatus(`${count} leere Kachel${count === 1 ? '' : 'n'} hinzugefuegt`);
+    }
+
+    function normalizeSubjectSizes() {
+      sanitizeShowcaseItems();
+
+      const candidates = state.showcase.items.map(entry => {
+        if (isEmptyShowcaseEntry(entry)) {
+          return null;
+        }
+
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) {
+          return null;
+        }
+
+        const bounds = getVisibleBounds(item.img);
+        const basePlacement = getContainedPlacement(item.img, entry.width, entry.height, 1);
+        const visibleHeight = Math.min(entry.height * 0.96, basePlacement.height * (entry.scale || 1) * (bounds?.heightRatio || 1));
+        return {
+          entry,
+          bounds,
+          baseHeight: basePlacement.height,
+          visibleHeight
+        };
+      }).filter(Boolean);
+
+      if (!candidates.length) {
+        setStatus('Keine Bilder zum Angleichen im Showcase');
+        return;
+      }
+
+      const sortedHeights = candidates.map(candidate => candidate.visibleHeight).sort((a, b) => a - b);
+      const targetHeight = sortedHeights[Math.floor(sortedHeights.length / 2)];
+      let adjusted = 0;
+
+      candidates.forEach(candidate => {
+        const ratio = candidate.bounds?.heightRatio || 1;
+        const nextScale = clamp(targetHeight / Math.max(1, candidate.baseHeight * ratio), 0.4, 2.6);
+        if (!Number.isFinite(nextScale)) {
+          return;
+        }
+
+        candidate.entry.scale = nextScale;
+        adjusted += 1;
+      });
+
+      renderShowcase();
+      recordHistory();
+      setStatus(`${adjusted} Motivgroessen angeglichen`);
     }
 
     function clearSwapTarget() {
@@ -1164,6 +1352,7 @@
     clearBtn.addEventListener('click', () => {
       state.items = [];
       state.showcase.items = [];
+      state.showcase.selectedId = null;
       filesInput.value = '';
       renderThumbs();
       renderShowcase();
@@ -1207,6 +1396,30 @@
       control.addEventListener('change', recordHistory);
     });
 
+    controls.imageScale.addEventListener('input', () => {
+      const entry = activeShowcaseEntry();
+      if (!entry) {
+        syncActiveTileControls();
+        return;
+      }
+
+      entry.scale = clamp(Number(controls.imageScale.value) / 100, 0.4, 2.6);
+      labels.imageScale.textContent = `${controls.imageScale.value} %`;
+      renderShowcase();
+    });
+
+    controls.imageScale.addEventListener('change', () => {
+      const entry = activeShowcaseEntry();
+      if (!entry) {
+        return;
+      }
+
+      entry.scale = clamp(Number(controls.imageScale.value) / 100, 0.4, 2.6);
+      renderShowcase();
+      recordHistory();
+      setStatus('Bildgroesse angepasst');
+    });
+
     showcasePopulateBtn.addEventListener('click', populateShowcase);
     showcaseArrangeBtn.addEventListener('click', () => {
       autoArrangeShowcase(true);
@@ -1214,6 +1427,7 @@
     });
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
     showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
+    showcaseAutoSizeBtn.addEventListener('click', normalizeSubjectSizes);
     undoBtn.addEventListener('click', undoHistory);
     redoBtn.addEventListener('click', redoHistory);
 
@@ -1227,6 +1441,13 @@
       if (!entry) {
         return;
       }
+
+      showcaseStageInner.querySelector('.showcase-item.selected')?.classList.remove('selected');
+      state.showcase.selectedId = isEmptyShowcaseEntry(entry) ? null : entry.id;
+      if (state.showcase.selectedId) {
+        card.classList.add('selected');
+      }
+      syncActiveTileControls();
 
       event.preventDefault();
       state.showcase.dragging = {
