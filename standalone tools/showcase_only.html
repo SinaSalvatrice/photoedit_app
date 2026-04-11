@@ -99,6 +99,7 @@
     }
 
     input[type="file"],
+    input[type="text"],
     input[type="number"],
     input[type="range"],
     select {
@@ -113,6 +114,7 @@
       color: var(--muted);
     }
 
+    input[type="text"],
     input[type="number"],
     select {
       background: var(--panel-2);
@@ -499,6 +501,26 @@
       </div>
 
       <div class="section">
+        <h2>Wortbau</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="wordBuilderInput">Wort oder Satz</label>
+            <input id="wordBuilderInput" type="text" placeholder="z.B. HALLO WELT" />
+          </div>
+
+          <div class="button-row">
+            <button id="wordBuildBtn" class="secondary" type="button">Wort ins Showcase</button>
+            <button id="duplicateLetterBtn" class="secondary" type="button">Aktive Kachel duplizieren</button>
+          </div>
+
+          <div class="hint">
+            Buchstaben werden ueber Dateinamen gefunden, zum Beispiel <strong>A.png</strong> oder <strong>b.webp</strong>.
+            Wiederholte Buchstaben wie in <strong>HALLO</strong> werden automatisch mehrfach eingesetzt.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <h2>Bilder</h2>
         <div id="thumbs" class="thumbs"></div>
       </div>
@@ -558,7 +580,8 @@
       tileWidth: document.getElementById('showcaseTileWidth'),
       imageScale: document.getElementById('showcaseImageScale'),
       bg: document.getElementById('showcaseBg'),
-      emptyCount: document.getElementById('showcaseEmptyCount')
+      emptyCount: document.getElementById('showcaseEmptyCount'),
+      wordText: document.getElementById('wordBuilderInput')
     };
 
     const labels = {
@@ -575,6 +598,8 @@
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
     const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
     const showcaseAutoSizeBtn = document.getElementById('showcaseAutoSizeBtn');
+    const wordBuildBtn = document.getElementById('wordBuildBtn');
+    const duplicateLetterBtn = document.getElementById('duplicateLetterBtn');
     const historyRow = document.createElement('div');
     historyRow.className = 'button-row';
     historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
@@ -639,7 +664,8 @@
         gap: controls.gap.value,
         tileWidth: controls.tileWidth.value,
         bg: controls.bg.value,
-        emptyCount: controls.emptyCount.value
+        emptyCount: controls.emptyCount.value,
+        wordText: controls.wordText.value
       };
     }
 
@@ -651,6 +677,7 @@
       controls.tileWidth.value = snapshot.tileWidth;
       controls.bg.value = snapshot.bg;
       controls.emptyCount.value = snapshot.emptyCount;
+      controls.wordText.value = snapshot.wordText || '';
     }
 
     function createSnapshot() {
@@ -773,6 +800,19 @@
 
     function isEmptyShowcaseEntry(entry) {
       return Boolean(entry?.isEmpty);
+    }
+
+    function createShowcaseEntryFromItem(item, metrics = getShowcaseMetrics(), overrides = {}) {
+      return {
+        id: crypto.randomUUID(),
+        sourceId: item.id,
+        x: 0,
+        y: 0,
+        width: metrics.tileWidth,
+        height: metrics.tileHeight,
+        scale: 1,
+        ...overrides
+      };
     }
 
     function createEmptyShowcaseEntry(metrics = getShowcaseMetrics()) {
@@ -915,6 +955,51 @@
       ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
     }
 
+    function baseNameFromFile(filename) {
+      return String(filename || '').replace(/\.[^.]+$/, '');
+    }
+
+    function normalizeWordLookup(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function lookupTokensForItem(item) {
+      const baseName = normalizeWordLookup(baseNameFromFile(item.name));
+      const parts = baseName.split(/[^a-z0-9]+/).filter(Boolean);
+      const compact = baseName.replace(/[^a-z0-9]+/g, '');
+      const tokens = new Set();
+
+      if (compact.length === 1) {
+        tokens.add(compact);
+      }
+
+      parts.forEach(part => {
+        if (part.length === 1) {
+          tokens.add(part);
+        }
+      });
+
+      return [...tokens];
+    }
+
+    function createLetterLookup(items) {
+      const lookup = new Map();
+
+      items.forEach(item => {
+        lookupTokensForItem(item).forEach(token => {
+          if (!lookup.has(token)) {
+            lookup.set(token, item);
+          }
+        });
+      });
+
+      return lookup;
+    }
+
+    function tokenizeWordInput(value) {
+      return Array.from(normalizeWordLookup(value)).filter(char => char === ' ' || /[a-z0-9]/.test(char));
+    }
+
     function renderThumbs() {
       thumbs.innerHTML = '';
 
@@ -1038,15 +1123,7 @@
       }
 
       const metrics = getShowcaseMetrics();
-      state.showcase.items = sourceItems.map(item => ({
-        id: crypto.randomUUID(),
-        sourceId: item.id,
-        x: 0,
-        y: 0,
-        width: metrics.tileWidth,
-        height: metrics.tileHeight,
-        scale: 1
-      }));
+      state.showcase.items = sourceItems.map(item => createShowcaseEntryFromItem(item, metrics));
       state.showcase.selectedId = null;
 
       autoArrangeShowcase(false);
@@ -1058,6 +1135,87 @@
           ? `Showcase gefuellt, aber ${state.showcase.items.length} Bilder ueberschreiten ${metrics.rows} x ${metrics.columns}`
           : `Showcase mit ${metrics.rows} x ${metrics.columns} gefuellt`
       );
+    }
+
+    function buildWordShowcase() {
+      const sourceItems = showcaseSourceItems();
+      if (!sourceItems.length) {
+        setStatus('Keine Bilder fuer den Wortbau verfuegbar');
+        return;
+      }
+
+      const tokens = tokenizeWordInput(controls.wordText.value);
+      if (!tokens.some(token => token !== ' ')) {
+        setStatus('Bitte ein Wort fuer den Wortbau eingeben');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const lookup = createLetterLookup(sourceItems);
+      const missing = [];
+      const nextEntries = [];
+
+      tokens.forEach(token => {
+        if (token === ' ') {
+          nextEntries.push(createEmptyShowcaseEntry(metrics));
+          return;
+        }
+
+        const item = lookup.get(token);
+        if (!item) {
+          if (!missing.includes(token)) {
+            missing.push(token);
+          }
+          return;
+        }
+
+        nextEntries.push(createShowcaseEntryFromItem(item, metrics));
+      });
+
+      if (!nextEntries.length) {
+        const missingText = missing.length
+          ? `Fehlende Buchstaben: ${missing.map(token => token.toUpperCase()).join(', ')}`
+          : 'Kein passender Buchstabe gefunden';
+        setStatus(missingText);
+        return;
+      }
+
+      const nextColumns = clamp(nextEntries.length, 1, 8);
+      controls.columns.value = String(nextColumns);
+      controls.rows.value = String(Math.max(1, Math.ceil(nextEntries.length / nextColumns)));
+      state.showcase.items = nextEntries;
+      state.showcase.selectedId = null;
+
+      autoArrangeShowcase(false);
+      updateStats();
+      recordHistory();
+
+      if (missing.length) {
+        setStatus(`Wort gebaut, aber es fehlen: ${missing.map(token => token.toUpperCase()).join(', ')}`);
+        return;
+      }
+
+      setStatus(`Wort mit ${nextEntries.length} Kachel${nextEntries.length === 1 ? '' : 'n'} aufgebaut`);
+    }
+
+    function duplicateActiveLetterTile() {
+      const entry = activeShowcaseEntry();
+      if (!entry || isEmptyShowcaseEntry(entry)) {
+        setStatus('Bitte zuerst eine Buchstaben-Kachel im Showcase auswaehlen');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const duplicate = createShowcaseEntryFromItem(showcaseItemById(entry.sourceId), metrics, {
+        scale: entry.scale || 1
+      });
+      const index = state.showcase.items.findIndex(item => item.id === entry.id);
+      state.showcase.items.splice(index + 1, 0, duplicate);
+      state.showcase.selectedId = duplicate.id;
+
+      autoArrangeShowcase(false);
+      recordHistory();
+      setStatus('Aktive Buchstaben-Kachel dupliziert');
     }
 
     function renderShowcaseCard(entry, canvas) {
@@ -1392,7 +1550,7 @@
       recordHistory();
     }));
 
-    [controls.source, controls.bg, controls.emptyCount].forEach(control => {
+    [controls.source, controls.bg, controls.emptyCount, controls.wordText].forEach(control => {
       control.addEventListener('change', recordHistory);
     });
 
@@ -1428,8 +1586,19 @@
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
     showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
     showcaseAutoSizeBtn.addEventListener('click', normalizeSubjectSizes);
+    wordBuildBtn.addEventListener('click', buildWordShowcase);
+    duplicateLetterBtn.addEventListener('click', duplicateActiveLetterTile);
     undoBtn.addEventListener('click', undoHistory);
     redoBtn.addEventListener('click', redoHistory);
+
+    controls.wordText.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      event.preventDefault();
+      buildWordShowcase();
+    });
 
     showcaseStage.addEventListener('pointerdown', event => {
       const card = event.target.closest('.showcase-item');
