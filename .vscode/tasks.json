@@ -1,0 +1,36 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "android: assembleDebug",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:JAVA_HOME='C:\\Program Files\\Android\\Android Studio\\jbr'; $env:ANDROID_SDK_ROOT=Join-Path $env:LOCALAPPDATA 'Android\\Sdk'; $env:Path=\"$env:JAVA_HOME\\bin;$env:ANDROID_SDK_ROOT\\platform-tools;$env:Path\"; Set-Location '${workspaceFolder}\\android'; .\\gradlew.bat assembleDebug"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "android: assembleRelease",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$env:JAVA_HOME='C:\\Program Files\\Android\\Android Studio\\jbr'; $env:ANDROID_SDK_ROOT=Join-Path $env:LOCALAPPDATA 'Android\\Sdk'; $env:Path=\"$env:JAVA_HOME\\bin;$env:ANDROID_SDK_ROOT\\platform-tools;$env:Path\"; Set-Location '${workspaceFolder}\\android'; .\\gradlew.bat assembleRelease"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
