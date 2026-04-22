@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">htmlstuff</string>
-    <string name="title_activity_main">htmlstuff</string>
-    <string name="package_name">com.sinasalvatrice.htmlstuff</string>
-    <string name="custom_url_scheme">com.sinasalvatrice.htmlstuff</string>
+    <string name="app_name">PhotoEdit App</string>
+    <string name="title_activity_main">PhotoEdit App</string>
+    <string name="package_name">com.sinasalvatrice.photoedit</string>
+    <string name="custom_url_scheme">com.sinasalvatrice.photoedit</string>
 </resources>

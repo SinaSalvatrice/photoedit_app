@@ -1,4 +1,4 @@
-package com.sinasalvatrice.htmlstuff;
+package com.sinasalvatrice.photoedit;
 
 import com.getcapacitor.BridgeActivity;
 

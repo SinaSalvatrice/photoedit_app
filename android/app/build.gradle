@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.sinasalvatrice.htmlstuff"
+    namespace = "com.sinasalvatrice.photoedit"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.sinasalvatrice.htmlstuff"
+        applicationId "com.sinasalvatrice.photoedit"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

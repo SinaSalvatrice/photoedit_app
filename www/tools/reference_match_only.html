@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nur an Referenz anpassen</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel2: #1f2630;
+      --line: #30363d;
+      --text: #e6edf3;
+      --muted: #9da7b3;
+      --accent: #4f8cff;
+      --accent2: #3d73d9;
+      --danger: #ff6b6b;
+      --good: #7bd88f;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(180deg, #0b0f14 0%, #10151d 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    body { padding: 14px; }
+    .app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 14px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+    }
+    .sidebar {
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+    }
+    .section {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section:last-child { border-bottom: 0; }
+    h1,h2,p { margin: 0; }
+    h1 { font-size: 1.14rem; margin-bottom: 8px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+    .sub {
+      color: var(--muted);
+      font-size: .92rem;
+      line-height: 1.48;
+      margin-bottom: 12px;
+    }
+    .controls, .stack { display: grid; gap: 12px; }
+    .row { display: grid; gap: 7px; }
+    label { color: var(--muted); font-size: .86rem; }
+    input[type="file"], input[type="number"], select, input[type="range"] {
+      width: 100%;
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid #3b4657;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: .95rem;
+    }
+    input[type="file"] {
+      border-style: dashed;
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+    }
+    input[type="range"] {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      accent-color: var(--accent);
+    }
+    button {
+      appearance: none;
+      border: 1px solid #4477d8;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      color: white;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: .94rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: var(--panel2);
+      border-color: #3b4657;
+      color: var(--text);
+    }
+    button.danger {
+      background: rgba(255,107,107,.12);
+      border-color: rgba(255,107,107,.35);
+      color: #ffd1d1;
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .status {
+      border: 1px solid #3b4657;
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: .86rem;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 0 4px rgba(123,216,143,.12);
+    }
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .stat {
+      border: 1px solid #3b4657;
+      background: rgba(255,255,255,.03);
+      border-radius: 14px;
+      padding: 10px 12px;
+      min-width: 120px;
+    }
+    .stat .k {
+      color: var(--muted);
+      font-size: .78rem;
+      margin-bottom: 6px;
+    }
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .workspace { display: grid; gap: 14px; }
+    .topbar {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .grid-wrap { padding: 16px; }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid #313845;
+      background: rgba(255,255,255,.03);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(79,140,255,.25);
+      background: rgba(79,140,255,.08);
+    }
+    .card.reference {
+      border-color: #7bd88f;
+      box-shadow: inset 0 0 0 1px rgba(123,216,143,.28);
+    }
+    .card.active {
+      border-color: #f0b35a;
+      box-shadow: inset 0 0 0 1px rgba(240,179,90,.35);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .card-head input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      margin-top: 2px;
+      flex: 0 0 auto;
+    }
+    .name { font-size: .9rem; line-height: 1.3; word-break: break-word; }
+    .meta { margin-top: 4px; color: var(--muted); font-size: .78rem; }
+    .preview-wrap { padding: 12px; }
+    .preview-box {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #374255;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        #0b1016;
+      background-size: 22px 22px;
+      background-position: 0 0, 11px 11px;
+      touch-action: none;
+      user-select: none;
+    }
+    .preview-box::before {
+      content: "";
+      display: block;
+      padding-top: 100%;
+    }
+    .preview-box canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    .card-foot {
+      padding: 0 12px 12px 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .mini-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      color: var(--muted);
+      font-size: .8rem;
+    }
+    .mini-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mini-controls button {
+      padding: 8px 10px;
+      font-size: .82rem;
+      border-radius: 10px;
+    }
+    .hint {
+      border: 1px solid rgba(79,140,255,.2);
+      background: rgba(79,140,255,.08);
+      color: #d8e6ff;
+      padding: 12px;
+      border-radius: 14px;
+      line-height: 1.45;
+      font-size: .9rem;
+    }
+    .empty {
+      padding: 34px 18px;
+      border: 1px dashed #4a5564;
+      border-radius: 16px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255,255,255,.02);
+    }
+    .small {
+      color: var(--muted);
+      font-size: .82rem;
+      line-height: 1.45;
+    }
+    .editor-target {
+      border: 1px solid #3b4657;
+      background: rgba(255,255,255,.03);
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.45;
+    }
+    .editor-target strong {
+      display: block;
+      font-size: .95rem;
+      color: var(--text);
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: .84rem;
+    }
+    .slider-head output {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      min-width: 52px;
+      text-align: right;
+    }
+    @media (max-width: 1050px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; max-height: none; }
+    }
+    @media (max-width: 680px) {
+      body { padding: 10px; }
+      .app { gap: 10px; }
+      .button-row { display: grid; grid-template-columns: 1fr 1fr; }
+      .button-row button { width: 100%; }
+      .image-grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+      .status { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Nur an Referenz anpassen</h1>
+        <p class="sub">Diese Version konzentriert sich nur auf ein Problem: Ein gutes Bild als Referenz festlegen und die anderen farblich daran angleichen.</p>
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Markierung löschen</button>
+            <button id="clearBtn" class="danger">Alles löschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Abgleich</h2>
+        <div class="stack">
+          <button id="matchToReferenceBtn">Markierte an Referenz angleichen</button>
+          <button id="resetSelectedBtn" class="secondary">Markierte zurücksetzen</button>
+          <div class="hint">Ablauf: Ein gutes Bild auswählen → bei diesem Bild auf <strong>Referenz</strong> klicken → die abweichenden Bilder markieren → <strong>Markierte an Referenz angleichen</strong>.</div>
+          <div class="small">Der Match nähert an bei Helligkeit, Kontrast, Sättigung und Wärme. Das ist kein Farb-Labor, aber sehr brauchbar gegen leicht abweichende Depp-Bilder.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Editor</h2>
+        <div class="stack">
+          <div id="editorTarget" class="editor-target">
+            <strong>Kein Bild aktiv</strong>
+            <div class="small">Ein Bild im Raster anklicken, dann hier Helligkeit, Kontrast und Sättigung anpassen.</div>
+          </div>
+          <div class="row">
+            <div class="slider-head">
+              <label for="brightnessRange">Helligkeit</label>
+              <output id="brightnessValue">100%</output>
+            </div>
+            <input id="brightnessRange" type="range" min="40" max="200" step="1" value="100" data-edit-key="brightness" />
+          </div>
+          <div class="row">
+            <div class="slider-head">
+              <label for="contrastRange">Kontrast</label>
+              <output id="contrastValue">100%</output>
+            </div>
+            <input id="contrastRange" type="range" min="50" max="200" step="1" value="100" data-edit-key="contrast" />
+          </div>
+          <div class="row">
+            <div class="slider-head">
+              <label for="saturationRange">Sättigung</label>
+              <output id="saturationValue">100%</output>
+            </div>
+            <input id="saturationRange" type="range" min="40" max="200" step="1" value="100" data-edit-key="saturation" />
+          </div>
+          <div class="row">
+            <div class="slider-head">
+              <label for="warmthRange">Wärme</label>
+              <output id="warmthValue">0</output>
+            </div>
+            <input id="warmthRange" type="range" min="-100" max="100" step="1" value="0" data-edit-key="warmth" />
+          </div>
+          <div class="row">
+            <div class="slider-head">
+              <label for="sharpnessRange">Schärfe</label>
+              <output id="sharpnessValue">0</output>
+            </div>
+            <input id="sharpnessRange" type="range" min="0" max="100" step="1" value="0" data-edit-key="sharpness" />
+          </div>
+          <button id="resetEditorBtn" class="secondary">Aktives Bild zurücksetzen</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="format">Exportformat</label>
+            <select id="format">
+              <option value="image/png">PNG</option>
+              <option value="image/jpeg">JPG</option>
+              <option value="image/webp">WEBP</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="quality">Qualität</label>
+            <input id="quality" type="number" min="0.1" max="1" step="0.05" value="0.92" />
+          </div>
+          <div class="button-row">
+            <button id="downloadSelectedBtn">Markierte exportieren</button>
+            <button id="downloadAllBtn" class="secondary">Alle exportieren</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="panel topbar">
+        <div>
+          <h2>Rastervorschau</h2>
+          <p class="sub" style="margin:6px 0 0 0;">Alle Bilder erscheinen sofort als Vorschau. Referenzbild ist grün markiert.</p>
+          <div class="stats">
+            <div class="stat"><div class="k">Bilder</div><div class="v" id="statCount">0</div></div>
+            <div class="stat"><div class="k">Markiert</div><div class="v" id="statSelected">0</div></div>
+            <div class="stat"><div class="k">Referenz</div><div class="v" id="statReference">–</div></div>
+          </div>
+        </div>
+        <div class="status"><span class="dot"></span><span id="statusText">Bereit</span></div>
+      </div>
+
+      <div class="panel grid-wrap">
+        <div id="imageGrid" class="image-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const imageGrid = document.getElementById('imageGrid');
+    const statusText = document.getElementById('statusText');
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statReference = document.getElementById('statReference');
+    const editorTarget = document.getElementById('editorTarget');
+    const resetEditorBtn = document.getElementById('resetEditorBtn');
+    const adjustmentInputs = Array.from(document.querySelectorAll('[data-edit-key]'));
+
+    const adjustmentOutputs = {
+      brightness: document.getElementById('brightnessValue'),
+      contrast: document.getElementById('contrastValue'),
+      saturation: document.getElementById('saturationValue'),
+      warmth: document.getElementById('warmthValue'),
+      sharpness: document.getElementById('sharpnessValue')
+    };
+
+    const formatEl = document.getElementById('format');
+    const qualityEl = document.getElementById('quality');
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const matchToReferenceBtn = document.getElementById('matchToReferenceBtn');
+    const resetSelectedBtn = document.getElementById('resetSelectedBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+
+    const state = {
+      items: [],
+      dragging: null,
+      activeId: null,
+      referenceId: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function createSnapshot() {
+      return {
+        format: formatEl.value,
+        quality: qualityEl.value,
+        activeId: state.activeId,
+        referenceId: state.referenceId,
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          selected: item.selected,
+          edit: { ...item.edit }
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      formatEl.value = snapshot.format;
+      qualityEl.value = snapshot.quality;
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        selected: item.selected,
+        edit: { ...item.edit }
+      }));
+      state.activeId = snapshot.activeId;
+      state.referenceId = snapshot.referenceId;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function defaultEdit() {
+      return {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        warmth: 0,
+        sharpness: 0,
+        panX: 0,
+        panY: 0,
+        zoom: 100
+      };
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function getReferenceItem() {
+      return state.items.find(item => item.id === state.referenceId) || null;
+    }
+
+    function getActiveItem() {
+      return state.items.find(item => item.id === state.activeId) || null;
+    }
+
+    function formatAdjustmentValue(key, value) {
+      if (key === 'brightness' || key === 'contrast' || key === 'saturation') {
+        return `${Math.round(value)}%`;
+      }
+      return `${Math.round(value)}`;
+    }
+
+    function syncEditor() {
+      const activeItem = getActiveItem();
+
+      adjustmentInputs.forEach(input => {
+        const key = input.dataset.editKey;
+        const fallback = defaultEdit()[key];
+        const value = activeItem ? activeItem.edit[key] : fallback;
+        input.value = value;
+        input.disabled = !activeItem;
+        adjustmentOutputs[key].textContent = formatAdjustmentValue(key, value);
+      });
+
+      resetEditorBtn.disabled = !activeItem;
+
+      if (!activeItem) {
+        editorTarget.innerHTML = '<strong>Kein Bild aktiv</strong><div class="small">Ein Bild im Raster anklicken, dann hier Helligkeit, Kontrast und Sättigung anpassen.</div>';
+        return;
+      }
+
+      editorTarget.innerHTML = `<strong>${escapeHtml(activeItem.name)}</strong><div class="small">Bearbeite dieses Bild direkt. Export und Referenz-Match verwenden diese Werte mit.</div>`;
+    }
+
+    function refreshCard(itemId) {
+      const item = state.items.find(entry => entry.id === itemId);
+      const card = imageGrid.querySelector(`.card[data-id="${itemId}"]`);
+      if (!item || !card) {
+        refreshStats();
+        syncEditor();
+        return;
+      }
+
+      card.classList.toggle('selected', item.selected);
+      card.classList.toggle('reference', item.id === state.referenceId);
+      card.classList.toggle('active', item.id === state.activeId);
+
+      const meta = card.querySelector('.meta');
+      if (meta) {
+        meta.textContent = `${item.img.width} × ${item.img.height}${item.id === state.referenceId ? ' • Referenz' : ''}${item.id === state.activeId ? ' • Aktiv' : ''}`;
+      }
+
+      const canvas = card.querySelector('[data-role="canvas"]');
+      if (canvas) drawPreview(item, canvas);
+
+      const row = card.querySelector('.mini-row');
+      if (row) {
+        row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      }
+
+      refreshStats();
+      syncEditor();
+    }
+
+    function setActiveItem(itemId, options = {}) {
+      const { silent = false } = options;
+      if (state.activeId === itemId) return;
+      const previousActiveId = state.activeId;
+      state.activeId = itemId;
+      if (previousActiveId) refreshCard(previousActiveId);
+      if (itemId) refreshCard(itemId);
+      if (!previousActiveId && !itemId) {
+        refreshStats();
+        syncEditor();
+      }
+      if (!silent) {
+        const activeItem = getActiveItem();
+        setStatus(activeItem ? `Aktiv im Editor: ${activeItem.name}` : 'Kein aktives Bild');
+      }
+    }
+
+    function getPlacement(item, canvas) {
+      const baseScale = Math.min(canvas.width / item.img.width, canvas.height / item.img.height);
+      const scale = baseScale * (item.edit.zoom / 100);
+      const drawW = item.img.width * scale;
+      const drawH = item.img.height * scale;
+      const x = (canvas.width - drawW) / 2 + item.edit.panX;
+      const y = (canvas.height - drawH) / 2 + item.edit.panY;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function applyCanvasPostEffects(ctx, canvas, warmth, sharpness, fullPrecision) {
+      if (warmth === 0 && sharpness === 0) return;
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      if (warmth !== 0) {
+        const amount = warmth / 100;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = clamp(data[i] + 28 * amount, 0, 255);
+          data[i + 1] = clamp(data[i + 1] + 6 * amount, 0, 255);
+          data[i + 2] = clamp(data[i + 2] - 28 * amount, 0, 255);
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      if (sharpness > 0) {
+        const strength = (sharpness / 100) * (fullPrecision ? 1.2 : 0.8);
+        const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const out = ctx.createImageData(src.width, src.height);
+        const s = src.data;
+        const d = out.data;
+        const w = src.width;
+        const h = src.height;
+        const centerWeight = 1 + strength * 4;
+        const sideWeight = -strength;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            for (let c = 0; c < 3; c++) {
+              const center = s[idx + c] * centerWeight;
+              const left = s[((y * w + Math.max(0, x - 1)) * 4) + c] * sideWeight;
+              const right = s[((y * w + Math.min(w - 1, x + 1)) * 4) + c] * sideWeight;
+              const up = s[((Math.max(0, y - 1) * w + x) * 4) + c] * sideWeight;
+              const down = s[((Math.min(h - 1, y + 1) * w + x) * 4) + c] * sideWeight;
+              d[idx + c] = clamp(center + left + right + up + down, 0, 255);
+            }
+            d[idx + 3] = s[idx + 3];
+          }
+        }
+        ctx.putImageData(out, 0, 0);
+      }
+    }
+
+    function drawPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b1016';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      const p = getPlacement(item, canvas);
+      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, canvas, item.edit.warmth, item.edit.sharpness, false);
+      }
+    }
+
+    function setupPreviewCanvas(item, box, canvas) {
+      const rect = box.getBoundingClientRect();
+      const w = Math.max(120, Math.round(rect.width * state.pixelRatio));
+      const h = Math.max(120, Math.round(rect.height * state.pixelRatio));
+      canvas.width = w;
+      canvas.height = h;
+      drawPreview(item, canvas);
+    }
+
+    function refreshStats() {
+      statCount.textContent = state.items.length;
+      statSelected.textContent = selectedItems().length;
+      const ref = getReferenceItem();
+      statReference.textContent = ref ? ref.name.slice(0, 18) + (ref.name.length > 18 ? '…' : '') : '–';
+    }
+
+    function renderGrid() {
+      if (!state.items.length) {
+        imageGrid.innerHTML = '<div class="empty">Noch keine Bilder geladen. Danach Referenz setzen und losgleichen.</div>';
+        refreshStats();
+        return;
+      }
+
+      imageGrid.innerHTML = '';
+
+      state.items.forEach(item => {
+        const classes = ['card'];
+        if (item.selected) classes.push('selected');
+        if (item.id === state.referenceId) classes.push('reference');
+        if (item.id === state.activeId) classes.push('active');
+
+        const card = document.createElement('article');
+        card.className = classes.join(' ');
+        card.dataset.id = item.id;
+        card.innerHTML = `
+          <div class="card-head">
+            <div style="min-width:0;flex:1;">
+              <div class="name">${escapeHtml(item.name)}</div>
+              <div class="meta">${item.img.width} × ${item.img.height}${item.id === state.referenceId ? ' • Referenz' : ''}${item.id === state.activeId ? ' • Aktiv' : ''}</div>
+            </div>
+            <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
+          </div>
+          <div class="preview-wrap">
+            <div class="preview-box" data-role="preview-box">
+              <canvas data-role="canvas"></canvas>
+            </div>
+          </div>
+          <div class="card-foot">
+            <div class="mini-row">
+              <span>Zoom: ${Math.round(item.edit.zoom)}%</span>
+              <span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>
+            </div>
+            <div class="mini-controls">
+              <button class="secondary" data-action="reference">Referenz</button>
+              <button class="secondary" data-action="fit">Einpassen</button>
+              <button class="secondary" data-action="reset">Reset</button>
+              <button class="secondary" data-action="export">Export</button>
+            </div>
+          </div>
+        `;
+        imageGrid.appendChild(card);
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        setupPreviewCanvas(item, box, canvas);
+      });
+
+      refreshStats();
+      syncEditor();
+    }
+
+    function refreshVisibleCanvases() {
+      document.querySelectorAll('.card').forEach(card => {
+        const item = state.items.find(x => x.id === card.dataset.id);
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        if (item && canvas && box) setupPreviewCanvas(item, box, canvas);
+      });
+      refreshStats();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) return;
+
+      const loaded = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve({ file, img });
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      })));
+
+      loaded.forEach(({ file, img }) => {
+        const id = crypto.randomUUID();
+        state.items.push({
+          id,
+          name: file.name,
+          img: cacheImage(img),
+          selected: true,
+          edit: defaultEdit()
+        });
+        if (!state.referenceId) state.referenceId = id;
+        if (!state.activeId) state.activeId = id;
+      });
+
+      renderGrid();
+      recordHistory();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function buildAnalysisCanvas(item, maxDim = 256) {
+      const scale = Math.min(1, maxDim / Math.max(item.img.width, item.img.height));
+      const w = Math.max(1, Math.round(item.img.width * scale));
+      const h = Math.max(1, Math.round(item.img.height * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      ctx.drawImage(item.img, 0, 0, w, h);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, canvas, item.edit.warmth, item.edit.sharpness, false);
+      }
+
+      return canvas;
+    }
+
+    function getCanvasStats(canvas, alphaThreshold = 8) {
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const { width, height } = canvas;
+      const data = ctx.getImageData(0, 0, width, height).data;
+
+      let count = 0;
+      let sumR = 0, sumG = 0, sumB = 0;
+      let sumLum = 0, sumLumSq = 0, sumChroma = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          const a = data[i + 3];
+          if (a <= alphaThreshold) continue;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+
+          sumR += r;
+          sumG += g;
+          sumB += b;
+          sumLum += lum;
+          sumLumSq += lum * lum;
+          sumChroma += chroma;
+          count++;
+        }
+      }
+
+      if (!count) return null;
+
+      const meanR = sumR / count;
+      const meanG = sumG / count;
+      const meanB = sumB / count;
+      const meanLum = sumLum / count;
+      const varianceLum = Math.max(0, (sumLumSq / count) - (meanLum * meanLum));
+      const stdLum = Math.sqrt(varianceLum);
+      const meanChroma = sumChroma / count;
+
+      return {
+        count,
+        meanR,
+        meanG,
+        meanB,
+        meanLum,
+        stdLum,
+        meanChroma,
+        warmth: meanR - meanB
+      };
+    }
+
+    function matchItemToReference(refStats, item) {
+      const srcCanvas = buildAnalysisCanvas(item);
+      const srcStats = getCanvasStats(srcCanvas);
+      if (!srcStats) return;
+
+      const lumRatio = clamp(refStats.meanLum / Math.max(1, srcStats.meanLum), 0.65, 1.5);
+      const contrastRatio = clamp(refStats.stdLum / Math.max(6, srcStats.stdLum), 0.75, 1.35);
+      const satRatio = clamp(refStats.meanChroma / Math.max(6, srcStats.meanChroma), 0.75, 1.4);
+      const warmthDelta = clamp((refStats.warmth - srcStats.warmth) * 0.35, -35, 35);
+
+      item.edit.brightness = clamp(Math.round(item.edit.brightness * lumRatio), 40, 200);
+      item.edit.contrast = clamp(Math.round(item.edit.contrast * contrastRatio), 50, 200);
+      item.edit.saturation = clamp(Math.round(item.edit.saturation * satRatio), 40, 200);
+      item.edit.warmth = clamp(Math.round(item.edit.warmth + warmthDelta), -100, 100);
+    }
+
+    function matchSelectedToReference() {
+      const refItem = getReferenceItem();
+      if (!refItem) {
+        setStatus('Erst ein Bild als Referenz festlegen');
+        return;
+      }
+
+      const targets = selectedItems().filter(item => item.id !== refItem.id);
+      if (!targets.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      const refCanvas = buildAnalysisCanvas(refItem);
+      const refStats = getCanvasStats(refCanvas);
+      if (!refStats) {
+        setStatus('Referenzbild konnte nicht ausgewertet werden');
+        return;
+      }
+
+      targets.forEach(item => matchItemToReference(refStats, item));
+      renderGrid();
+      setStatus(`${targets.length} Bild${targets.length === 1 ? '' : 'er'} an Referenz angenähert`);
+    }
+
+    function resetSelected() {
+      const targets = selectedItems();
+      if (!targets.length) {
+        setStatus('Keine Bilder markiert');
+        return;
+      }
+      targets.forEach(item => { item.edit = defaultEdit(); });
+      renderGrid();
+      setStatus(`${targets.length} Bild${targets.length === 1 ? '' : 'er'} zurückgesetzt`);
+    }
+
+    function buildExportCanvas(item) {
+      const out = document.createElement('canvas');
+      out.width = item.img.width;
+      out.height = item.img.height;
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      const p = getPlacement(item, out);
+      ctx.drawImage(item.img, p.x, p.y, p.drawW, p.drawH);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
+      }
+
+      return out;
+    }
+
+    function exportItem(item) {
+      const mime = formatEl.value;
+      const quality = clamp(Number(qualityEl.value) || 0.92, 0.1, 1);
+      const out = buildExportCanvas(item);
+      const a = document.createElement('a');
+      const base = item.name.replace(/\.[^.]+$/, '');
+      a.href = out.toDataURL(mime, quality);
+      a.download = `${base}-reference-matched.${fileExtFromMime(mime)}`;
+      a.click();
+    }
+
+    async function exportItems(items) {
+      if (!items.length) {
+        setStatus('Nichts zum Exportieren markiert');
+        return;
+      }
+      setStatus(`Exportiere ${items.length} Bild${items.length === 1 ? '' : 'er'}…`);
+      for (const item of items) {
+        exportItem(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} exportiert`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      state.activeId = null;
+      state.referenceId = null;
+      filesInput.value = '';
+      renderGrid();
+      setStatus('Alles gelöscht');
+    }
+
+    function itemFromCard(el) {
+      const card = el.closest('.card');
+      if (!card) return null;
+      return state.items.find(x => x.id === card.dataset.id) || null;
+    }
+
+    function getCanvasPoint(evt, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    filesInput.addEventListener('change', e => loadFiles(e.target.files));
+
+    adjustmentInputs.forEach(input => {
+      input.addEventListener('input', evt => {
+        const item = getActiveItem();
+        if (!item) return;
+        const key = evt.target.dataset.editKey;
+        item.edit[key] = Number(evt.target.value);
+        adjustmentOutputs[key].textContent = formatAdjustmentValue(key, item.edit[key]);
+        refreshCard(item.id);
+      });
+      input.addEventListener('change', recordHistory);
+    });
+
+    resetEditorBtn.addEventListener('click', () => {
+      const item = getActiveItem();
+      if (!item) {
+        setStatus('Kein aktives Bild gewählt');
+        return;
+      }
+      item.edit = defaultEdit();
+      refreshCard(item.id);
+      recordHistory();
+      setStatus(`Editor zurückgesetzt: ${item.name}`);
+    });
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => item.selected = true);
+      renderGrid();
+      recordHistory();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => item.selected = false);
+      renderGrid();
+      recordHistory();
+      setStatus('Markierung gelöscht');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      clearAll();
+      recordHistory();
+    });
+    matchToReferenceBtn.addEventListener('click', () => {
+      matchSelectedToReference();
+      recordHistory();
+    });
+    resetSelectedBtn.addEventListener('click', () => {
+      resetSelected();
+      recordHistory();
+    });
+    downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
+    downloadAllBtn.addEventListener('click', () => exportItems(state.items));
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
+
+    imageGrid.addEventListener('change', evt => {
+      if (!evt.target.matches('input[type="checkbox"]')) return;
+      const item = itemFromCard(evt.target);
+      if (!item) return;
+      item.selected = evt.target.checked;
+      evt.target.closest('.card').classList.toggle('selected', item.selected);
+      refreshStats();
+      recordHistory();
+    });
+
+    imageGrid.addEventListener('click', evt => {
+      const card = evt.target.closest('.card');
+      if (card && !evt.target.closest('button, input[type="checkbox"]')) {
+        setActiveItem(card.dataset.id);
+        recordHistory();
+      }
+
+      const btn = evt.target.closest('button[data-action]');
+      if (!btn) return;
+      const item = itemFromCard(btn);
+      if (!item) return;
+      const action = btn.dataset.action;
+
+      if (action === 'reference') {
+        state.referenceId = item.id;
+        renderGrid();
+        recordHistory();
+        setStatus(`Referenz gesetzt: ${item.name}`);
+      }
+      if (action === 'fit') {
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+        refreshCard(item.id);
+        recordHistory();
+        setStatus(`Eingepasst: ${item.name}`);
+      }
+      if (action === 'reset') {
+        item.edit = defaultEdit();
+        refreshCard(item.id);
+        recordHistory();
+        setStatus(`Zurückgesetzt: ${item.name}`);
+      }
+      if (action === 'export') {
+        exportItem(item);
+        setStatus(`Exportiert: ${item.name}`);
+      }
+    });
+
+    imageGrid.addEventListener('pointerdown', evt => {
+      const canvas = evt.target.closest('canvas');
+      if (!canvas) return;
+      const item = itemFromCard(canvas);
+      if (!item) return;
+      if (state.activeId !== item.id) setActiveItem(item.id, { silent: true });
+      evt.preventDefault();
+      const p = getCanvasPoint(evt, canvas);
+      state.dragging = {
+        id: item.id,
+        startX: p.x,
+        startY: p.y,
+        panX: item.edit.panX,
+        panY: item.edit.panY,
+        canvas
+      };
+      canvas.setPointerCapture(evt.pointerId);
+      canvas.style.cursor = 'grabbing';
+    });
+
+    imageGrid.addEventListener('pointermove', evt => {
+      if (!state.dragging) return;
+      const canvas = state.dragging.canvas;
+      const item = state.items.find(x => x.id === state.dragging.id);
+      if (!canvas || !item) return;
+      const p = getCanvasPoint(evt, canvas);
+      item.edit.panX = state.dragging.panX + (p.x - state.dragging.startX);
+      item.edit.panY = state.dragging.panY + (p.y - state.dragging.startY);
+      drawPreview(item, canvas);
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+    });
+
+    function endDrag(evt) {
+      if (!state.dragging) return;
+      try { state.dragging.canvas.releasePointerCapture(evt.pointerId); } catch (_) {}
+      state.dragging.canvas.style.cursor = 'grab';
+      state.dragging = null;
+      recordHistory();
+    }
+
+    imageGrid.addEventListener('pointerup', endDrag);
+    imageGrid.addEventListener('pointercancel', endDrag);
+
+    imageGrid.addEventListener('wheel', evt => {
+      const canvas = evt.target.closest('canvas');
+      if (!canvas) return;
+      const item = itemFromCard(canvas);
+      if (!item) return;
+      evt.preventDefault();
+      item.edit.zoom = clamp(item.edit.zoom + (evt.deltaY < 0 ? 6 : -6), 20, 400);
+      drawPreview(item, canvas);
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      recordHistory();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__refResizeTimer);
+      window.__refResizeTimer = setTimeout(refreshVisibleCanvases, 80);
+    });
+
+    window.addEventListener('keydown', evt => {
+      if (!(evt.ctrlKey || evt.metaKey)) return;
+      if (evt.target && /input|textarea|select/i.test(evt.target.tagName)) return;
+      const key = evt.key.toLowerCase();
+      if (key === 'z' && !evt.shiftKey) {
+        evt.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && evt.shiftKey)) {
+        evt.preventDefault();
+        redoHistory();
+      }
+    });
+
+    renderGrid();
+    recordHistory();
+  </script>
+</body>
+</html>
