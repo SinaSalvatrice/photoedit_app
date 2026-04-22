@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nur Editor</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel2: #1f2630;
+      --line: #30363d;
+      --text: #e6edf3;
+      --muted: #9da7b3;
+      --accent: #4f8cff;
+      --accent2: #3d73d9;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(180deg, #0b0f14 0%, #10151d 100%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    body { padding: 14px; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 14px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+    }
+
+    .section {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 1.15rem; margin-bottom: 8px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .three {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    input[type="file"],
+    input[type="number"],
+    input[type="range"],
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px dashed #4a5564;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+    }
+
+    input[type="number"],
+    select {
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid #3b4657;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] { accent-color: var(--accent); }
+
+    button {
+      appearance: none;
+      border: 1px solid #4477d8;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      color: white;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.94rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel2);
+      border-color: #3b4657;
+      color: var(--text);
+    }
+
+    button.danger {
+      background: rgba(255, 107, 107, 0.1);
+      border-color: rgba(255, 107, 107, 0.35);
+      color: #ffd1d1;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .hint {
+      border: 1px solid rgba(79, 140, 255, 0.2);
+      background: rgba(79, 140, 255, 0.08);
+      color: #d8e6ff;
+      padding: 12px;
+      border-radius: 14px;
+      line-height: 1.45;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 14px;
+    }
+
+    .topbar {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .status {
+      border: 1px solid #3b4657;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    .grid-wrap {
+      padding: 16px;
+    }
+
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .stat {
+      border: 1px solid #3b4657;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      padding: 10px 12px;
+      min-width: 120px;
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid #313845;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(79, 140, 255, 0.25);
+      background: rgba(79, 140, 255, 0.08);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-head input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      margin-top: 2px;
+      flex: 0 0 auto;
+    }
+
+    .name {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .crop-badge,
+    .op-badge {
+      display: inline-flex;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      line-height: 1;
+    }
+
+    .crop-badge {
+      background: rgba(123, 216, 143, 0.12);
+      border: 1px solid rgba(123, 216, 143, 0.3);
+      color: #d8f7df;
+    }
+
+    .op-badge {
+      background: rgba(255, 196, 0, 0.12);
+      border: 1px solid rgba(255, 196, 0, 0.28);
+      color: #ffe7a3;
+    }
+
+    .preview-wrap { padding: 12px; }
+
+    .preview-box {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #374255;
+      background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%),
+        #0b1016;
+      background-size: 22px 22px;
+      background-position: 0 0, 11px 11px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .preview-box::before {
+      content: "";
+      display: block;
+      padding-top: var(--ratioPad, 100%);
+    }
+
+    .preview-box canvas,
+    .grid-lines,
+    .crop-overlay {
+      position: absolute;
+      inset: 0;
+    }
+
+    .preview-box canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    .grid-lines {
+      pointer-events: none;
+      opacity: 0.2;
+      background-image:
+        linear-gradient(to right, transparent 33.33%, rgba(255, 255, 255, 0.2) 33.33%, rgba(255, 255, 255, 0.2) 34%, transparent 34%, transparent 66.66%, rgba(255, 255, 255, 0.2) 66.66%, rgba(255, 255, 255, 0.2) 67%, transparent 67%),
+        linear-gradient(to bottom, transparent 33.33%, rgba(255, 255, 255, 0.2) 33.33%, rgba(255, 255, 255, 0.2) 34%, transparent 34%, transparent 66.66%, rgba(255, 255, 255, 0.2) 66.66%, rgba(255, 255, 255, 0.2) 67%, transparent 67%);
+    }
+
+    .crop-overlay {
+      border: 2px solid rgba(123, 216, 143, 0.9);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28);
+      pointer-events: auto;
+    }
+
+    .crop-overlay.hidden { display: none; }
+
+    .crop-handle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #7bd88f;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .crop-handle[data-handle="nw"] { top: -7px; left: -7px; cursor: nwse-resize; }
+    .crop-handle[data-handle="ne"] { top: -7px; right: -7px; cursor: nesw-resize; }
+    .crop-handle[data-handle="sw"] { bottom: -7px; left: -7px; cursor: nesw-resize; }
+    .crop-handle[data-handle="se"] { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+    .card-foot {
+      padding: 0 12px 12px 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .mini-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-controls button {
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      border-radius: 10px;
+    }
+
+    .empty {
+      padding: 34px 18px;
+      border: 1px dashed #4a5564;
+      border-radius: 16px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    @media (max-width: 1050px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 680px) {
+      body { padding: 10px; }
+      .app { gap: 10px; }
+      .two, .three { grid-template-columns: 1fr; }
+      .image-grid { grid-template-columns: 1fr; }
+      .button-row { display: grid; grid-template-columns: 1fr 1fr; }
+      .button-row button { width: 100%; }
+      .topbar { flex-direction: column; }
+      .status { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h1>Batch Bildeditor</h1>
+        <p class="sub">Nur Editing, ohne Showcase. Bilder laden, gemeinsam anpassen, direkt in den Kacheln verschieben oder zoomen und anschliessend exportieren.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Markierung loeschen</button>
+            <button id="clearBtn" class="danger">Alles loeschen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Globale Anpassungen</h2>
+        <div class="controls">
+          <div class="row">
+            <label for="targetMode">Anwenden auf</label>
+            <select id="targetMode">
+              <option value="selected">Markierte Bilder</option>
+              <option value="all">Alle Bilder</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="brightness">Helligkeit</label><span id="brightnessVal">100%</span></div>
+            <input id="brightness" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="contrast">Kontrast</label><span id="contrastVal">100%</span></div>
+            <input id="contrast" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="saturation">Saettigung</label><span id="saturationVal">100%</span></div>
+            <input id="saturation" type="range" min="0" max="200" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="warmth">Waerme</label><span id="warmthVal">0</span></div>
+            <input id="warmth" type="range" min="-100" max="100" value="0" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="sharpness">Schaerfe</label><span id="sharpnessVal">0</span></div>
+            <input id="sharpness" type="range" min="0" max="100" value="0" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="zoom">Zoom</label><span id="zoomVal">100%</span></div>
+            <input id="zoom" type="range" min="20" max="400" value="100" />
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="padding">Quadrat-Padding</label><span id="paddingVal">12%</span></div>
+            <input id="padding" type="range" min="0" max="35" value="12" />
+          </div>
+
+          <div class="two">
+            <div class="row">
+              <label for="ratio">Format / Rahmen</label>
+              <select id="ratio">
+                <option value="1:1">1:1 Quadrat</option>
+                <option value="2:1">2:1 Querformat</option>
+                <option value="1:2">1:2 Hochformat</option>
+                <option value="4:5">4:5 Hochformat</option>
+                <option value="5:4">5:4 Querformat</option>
+                <option value="3:2">3:2 Querformat</option>
+                <option value="2:3">2:3 Hochformat</option>
+                <option value="16:9">16:9 Querformat</option>
+                <option value="9:16">9:16 Hochformat</option>
+                <option value="free">Frei</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label for="columns">Kachelgroesse</label>
+              <select id="columns">
+                <option value="220">Kompakt</option>
+                <option value="260" selected>Normal</option>
+                <option value="320">Gross</option>
+                <option value="400">Sehr gross</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="three">
+            <div class="row">
+              <label for="format">Exportformat</label>
+              <select id="format">
+                <option value="image/png">PNG</option>
+                <option value="image/jpeg">JPG</option>
+                <option value="image/webp">WEBP</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label for="quality">Qualitaet</label>
+              <input id="quality" type="number" min="0.1" max="1" step="0.05" value="0.92" />
+            </div>
+
+            <div class="row">
+              <label for="upscale">Upscale</label>
+              <select id="upscale">
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="bgFill">Leere Bereiche fuellen</label>
+            <select id="bgFill">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiss</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="applyBtn">Werte anwenden</button>
+            <button id="fitBtn" class="secondary">Einpassen</button>
+            <button id="resetSelectedBtn" class="secondary">Reset markierte</button>
+          </div>
+
+          <div class="button-row">
+            <button id="squarePackBtn" class="secondary">Quadratisch packen</button>
+            <button id="restoreOriginalBtn" class="secondary">Original wiederherstellen</button>
+          </div>
+
+          <div class="small">
+            Direkt in der Bildvorschau: <strong>ziehen</strong> = verschieben, <strong>Mausrad</strong> = zoomen. Wenn das Quadrat-Crop aktiv ist, laesst sich das Feld direkt ziehen und an den Ecken skalieren.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Export</h2>
+        <div class="button-row">
+          <button id="downloadSelectedBtn">Markierte exportieren</button>
+          <button id="downloadAllBtn" class="secondary">Alle exportieren</button>
+          <button id="splitSelectedBtn" class="secondary">Markierte in 4 Teile</button>
+          <button id="splitAllBtn" class="secondary">Alle in 4 Teile</button>
+        </div>
+        <div class="hint">
+          Die Vorschau ist direkt eingebaut. "In 4 Teile" zerlegt das bearbeitete Exportbild in oben links, oben rechts, unten links und unten rechts.
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="panel topbar">
+        <div>
+          <h2>Rastervorschau</h2>
+          <p class="sub" style="margin:6px 0 0 0;">Hier erscheinen alle Bilder sofort als Vorschau-Kacheln.</p>
+
+          <div class="summary">
+            <div class="stat">
+              <div class="k">Bilder</div>
+              <div class="v" id="statCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Markiert</div>
+              <div class="v" id="statSelected">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Format</div>
+              <div class="v" id="statRatio">1:1</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status" id="statusText">Bereit</div>
+      </div>
+
+      <div class="panel grid-wrap">
+        <div id="imageGrid" class="image-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const imageGrid = document.getElementById('imageGrid');
+    const statusText = document.getElementById('statusText');
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statRatio = document.getElementById('statRatio');
+
+    const controls = {
+      targetMode: document.getElementById('targetMode'),
+      brightness: document.getElementById('brightness'),
+      contrast: document.getElementById('contrast'),
+      saturation: document.getElementById('saturation'),
+      warmth: document.getElementById('warmth'),
+      sharpness: document.getElementById('sharpness'),
+      zoom: document.getElementById('zoom'),
+      ratio: document.getElementById('ratio'),
+      columns: document.getElementById('columns'),
+      padding: document.getElementById('padding'),
+      format: document.getElementById('format'),
+      quality: document.getElementById('quality'),
+      upscale: document.getElementById('upscale'),
+      bgFill: document.getElementById('bgFill')
+    };
+
+    const labels = {
+      brightness: document.getElementById('brightnessVal'),
+      contrast: document.getElementById('contrastVal'),
+      saturation: document.getElementById('saturationVal'),
+      warmth: document.getElementById('warmthVal'),
+      sharpness: document.getElementById('sharpnessVal'),
+      zoom: document.getElementById('zoomVal'),
+      padding: document.getElementById('paddingVal')
+    };
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const applyBtn = document.getElementById('applyBtn');
+    const fitBtn = document.getElementById('fitBtn');
+    const resetSelectedBtn = document.getElementById('resetSelectedBtn');
+    const squarePackBtn = document.getElementById('squarePackBtn');
+    const restoreOriginalBtn = document.getElementById('restoreOriginalBtn');
+    const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const splitSelectedBtn = document.getElementById('splitSelectedBtn');
+    const splitAllBtn = document.getElementById('splitAllBtn');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+
+    const state = {
+      items: [],
+      dragging: null,
+      cropDrag: null,
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+    };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        targetMode: controls.targetMode.value,
+        ratio: controls.ratio.value,
+        columns: controls.columns.value,
+        padding: controls.padding.value,
+        format: formatEl.value,
+        quality: qualityEl.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.targetMode.value = snapshot.targetMode;
+      controls.ratio.value = snapshot.ratio;
+      controls.columns.value = snapshot.columns;
+      controls.padding.value = snapshot.padding;
+      formatEl.value = snapshot.format;
+      qualityEl.value = snapshot.quality;
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          originalSrc: item.originalImg?.src || item.img.src,
+          selected: item.selected,
+          crop: { ...item.crop },
+          edit: { ...item.edit }
+        }))
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        originalImg: restoreImage(item.originalSrc),
+        selected: item.selected,
+        crop: { ...item.crop },
+        edit: { ...item.edit }
+      }));
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      updateLabels();
+      renderGrid();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
+    }
+
+    function ratioParts(ratioStr) {
+      if (!ratioStr || ratioStr === 'free') {
+        return { w: 1, h: 1, pad: 100 };
+      }
+      const parts = ratioStr.split(':').map(Number);
+      const w = parts[0] || 1;
+      const h = parts[1] || 1;
+      return { w, h, pad: (h / w) * 100 };
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function defaultEdit() {
+      return {
+        brightness: 100,
+        contrast: 100,
+        saturation: 100,
+        warmth: 0,
+        sharpness: 0,
+        zoom: 100,
+        panX: 0,
+        panY: 0
+      };
+    }
+
+    function defaultCrop() {
+      return {
+        enabled: false,
+        x: 0,
+        y: 0,
+        size: 0,
+        padding: Number(controls.padding.value || 12)
+      };
+    }
+
+    function createOffscreenCanvas(width, height) {
+      if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function getAlphaBounds(img) {
+      const canvas = createOffscreenCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, img.width, img.height);
+      const data = imageData.data;
+      let minX = img.width;
+      let minY = img.height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const alpha = data[((y * img.width) + x) * 4 + 3];
+          if (alpha > 8) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return { x: 0, y: 0, width: img.width, height: img.height };
+      }
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1
+      };
+    }
+
+    function buildSquareCropFromBounds(bounds, paddingPercent) {
+      const padding = clamp((Number(paddingPercent) || 0) / 100, 0, 0.45);
+      const usableArea = Math.max(0.1, 1 - padding * 2);
+      const contentSize = Math.max(bounds.width, bounds.height);
+      const size = Math.max(24, contentSize / usableArea);
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+
+      return {
+        enabled: true,
+        x: centerX - size / 2,
+        y: centerY - size / 2,
+        size,
+        padding: Number(paddingPercent) || 0
+      };
+    }
+
+    function hasActiveCrop(item) {
+      return Boolean(item.crop && item.crop.enabled && item.crop.size > 0);
+    }
+
+    function getSourceRect(item) {
+      if (hasActiveCrop(item)) {
+        return {
+          x: item.crop.x,
+          y: item.crop.y,
+          width: item.crop.size,
+          height: item.crop.size
+        };
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        width: item.img.width,
+        height: item.img.height
+      };
+    }
+
+    function getFittedPlacement(img, canvas) {
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const x = (canvas.width - drawW) / 2;
+      const y = (canvas.height - drawH) / 2;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function getPlacement(item, canvas) {
+      if (hasActiveCrop(item)) {
+        return getFittedPlacement(item.img, canvas);
+      }
+
+      const baseScale = Math.min(canvas.width / item.img.width, canvas.height / item.img.height);
+      const scale = baseScale * (item.edit.zoom / 100);
+      const drawW = item.img.width * scale;
+      const drawH = item.img.height * scale;
+      const x = (canvas.width - drawW) / 2 + item.edit.panX;
+      const y = (canvas.height - drawH) / 2 + item.edit.panY;
+      return { x, y, drawW, drawH, scale };
+    }
+
+    function getCropOverlayRect(item, canvas) {
+      if (!hasActiveCrop(item)) {
+        return null;
+      }
+
+      const placement = getFittedPlacement(item.img, canvas);
+      return {
+        left: placement.x + item.crop.x * placement.scale,
+        top: placement.y + item.crop.y * placement.scale,
+        size: item.crop.size * placement.scale,
+        scale: placement.scale
+      };
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function targetItems() {
+      return controls.targetMode.value === 'all' ? state.items : selectedItems();
+    }
+
+    function updateLabels() {
+      labels.brightness.textContent = `${controls.brightness.value}%`;
+      labels.contrast.textContent = `${controls.contrast.value}%`;
+      labels.saturation.textContent = `${controls.saturation.value}%`;
+      labels.warmth.textContent = `${controls.warmth.value}`;
+      labels.sharpness.textContent = `${controls.sharpness.value}`;
+      labels.zoom.textContent = `${controls.zoom.value}%`;
+      labels.padding.textContent = `${controls.padding.value}%`;
+      statRatio.textContent = controls.ratio.value;
+    }
+
+    function refreshStats() {
+      statCount.textContent = state.items.length;
+      statSelected.textContent = selectedItems().length;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function applyCanvasPostEffects(ctx, canvas, warmth, sharpness, fullPrecision) {
+      if (warmth === 0 && sharpness === 0) {
+        return;
+      }
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+
+      if (warmth !== 0) {
+        const amount = warmth / 100;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = clamp(data[i] + 28 * amount, 0, 255);
+          data[i + 1] = clamp(data[i + 1] + 6 * amount, 0, 255);
+          data[i + 2] = clamp(data[i + 2] - 28 * amount, 0, 255);
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      if (sharpness > 0) {
+        const strength = (sharpness / 100) * (fullPrecision ? 1.2 : 0.8);
+        const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const out = ctx.createImageData(src.width, src.height);
+        const s = src.data;
+        const d = out.data;
+        const w = src.width;
+        const h = src.height;
+        const centerWeight = 1 + strength * 4;
+        const sideWeight = -strength;
+
+        for (let y = 0; y < h; y += 1) {
+          for (let x = 0; x < w; x += 1) {
+            const idx = (y * w + x) * 4;
+            for (let c = 0; c < 3; c += 1) {
+              const center = s[idx + c] * centerWeight;
+              const left = s[((y * w + Math.max(0, x - 1)) * 4) + c] * sideWeight;
+              const right = s[((y * w + Math.min(w - 1, x + 1)) * 4) + c] * sideWeight;
+              const up = s[((Math.max(0, y - 1) * w + x) * 4) + c] * sideWeight;
+              const down = s[((Math.min(h - 1, y + 1) * w + x) * 4) + c] * sideWeight;
+              d[idx + c] = clamp(center + left + right + up + down, 0, 255);
+            }
+            d[idx + 3] = s[idx + 3];
+          }
+        }
+
+        ctx.putImageData(out, 0, 0);
+      }
+    }
+
+    function drawItemIntoFrame(ctx, item, canvas) {
+      if (hasActiveCrop(item)) {
+        const source = getSourceRect(item);
+        const scale = Math.min(canvas.width / source.width, canvas.height / source.height);
+        const drawW = item.img.width * scale;
+        const drawH = item.img.height * scale;
+        const x = (canvas.width - source.width * scale) / 2 - source.x * scale;
+        const y = (canvas.height - source.height * scale) / 2 - source.y * scale;
+        ctx.drawImage(item.img, x, y, drawW, drawH);
+        return;
+      }
+
+      const placement = getPlacement(item, canvas);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.drawW, placement.drawH);
+    }
+
+    function drawPreview(item, canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0b1016';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      drawItemIntoFrame(ctx, item, canvas);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, canvas, item.edit.warmth, item.edit.sharpness, false);
+      }
+    }
+
+    function updateCropOverlay(item, box, canvas) {
+      const overlay = box.querySelector('[data-role="crop-overlay"]');
+      if (!overlay) {
+        return;
+      }
+
+      if (!hasActiveCrop(item)) {
+        overlay.classList.add('hidden');
+        overlay.style.left = '0px';
+        overlay.style.top = '0px';
+        overlay.style.width = '0px';
+        overlay.style.height = '0px';
+        return;
+      }
+
+      const rect = getCropOverlayRect(item, canvas);
+      if (!rect) {
+        overlay.classList.add('hidden');
+        return;
+      }
+
+      overlay.classList.remove('hidden');
+      overlay.style.left = `${rect.left}px`;
+      overlay.style.top = `${rect.top}px`;
+      overlay.style.width = `${rect.size}px`;
+      overlay.style.height = `${rect.size}px`;
+    }
+
+    function updateCardMeta(card, item) {
+      const row = card.querySelector('.mini-row');
+      if (!row) {
+        return;
+      }
+
+      if (hasActiveCrop(item)) {
+        row.innerHTML = `<span>Quadrat aktiv</span><span>Padding ${Math.round(item.crop.padding)}%</span>`;
+        return;
+      }
+
+      row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+    }
+
+    function setupPreviewCanvas(item, box, canvas) {
+      const rect = box.getBoundingClientRect();
+      const w = Math.max(120, Math.round(rect.width * state.pixelRatio));
+      const h = Math.max(120, Math.round(rect.height * state.pixelRatio));
+      canvas.width = w;
+      canvas.height = h;
+      drawPreview(item, canvas);
+      updateCropOverlay(item, box, canvas);
+    }
+
+    function renderGrid() {
+      imageGrid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${controls.columns.value}px, 1fr))`;
+
+      if (!state.items.length) {
+        imageGrid.innerHTML = '<div class="empty">Noch keine Bilder geladen. Sobald du welche auswaehlst, erscheinen sie hier direkt als Vorschau.</div>';
+        refreshStats();
+        return;
+      }
+
+      const ratio = ratioParts(controls.ratio.value);
+      imageGrid.innerHTML = '';
+
+      state.items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = `card${item.selected ? ' selected' : ''}`;
+        card.dataset.id = item.id;
+        const itemRatioPad = hasActiveCrop(item) ? 100 : ratio.pad;
+
+        card.innerHTML = `
+          <div class="card-head">
+            <div style="min-width:0;flex:1;">
+              <div class="name">${escapeHtml(item.name)}</div>
+              <div class="meta">${item.img.width} x ${item.img.height}</div>
+              ${hasActiveCrop(item) ? `<div class="crop-badge">Quadrat-Crop · ${Math.round(item.crop.padding)}% Padding</div>` : ''}
+            </div>
+            <input type="checkbox" ${item.selected ? 'checked' : ''} aria-label="Bild markieren" />
+          </div>
+
+          <div class="preview-wrap">
+            <div class="preview-box" data-role="preview-box" style="--ratioPad:${itemRatioPad}%">
+              <canvas data-role="canvas"></canvas>
+              <div class="crop-overlay hidden" data-role="crop-overlay">
+                <div class="crop-handle" data-handle="nw"></div>
+                <div class="crop-handle" data-handle="ne"></div>
+                <div class="crop-handle" data-handle="sw"></div>
+                <div class="crop-handle" data-handle="se"></div>
+              </div>
+              <div class="grid-lines"></div>
+            </div>
+          </div>
+
+          <div class="card-foot">
+            <div class="mini-row">
+              <span>Zoom: ${Math.round(item.edit.zoom)}%</span>
+              <span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>
+            </div>
+
+            <div class="mini-controls">
+              <button class="secondary" data-action="fit">Einpassen</button>
+              <button class="secondary" data-action="reset">Reset</button>
+              <button class="secondary" data-action="square-pack">Quadrat</button>
+              <button class="secondary" data-action="restore-original">Original</button>
+              <button class="secondary" data-action="export">Export</button>
+              <button class="secondary" data-action="split">4 Teile</button>
+            </div>
+          </div>
+        `;
+
+        imageGrid.appendChild(card);
+
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        setupPreviewCanvas(item, box, canvas);
+        updateCardMeta(card, item);
+      });
+
+      refreshStats();
+    }
+
+    function refreshVisibleCanvases() {
+      document.querySelectorAll('.card').forEach(card => {
+        const item = state.items.find(entry => entry.id === card.dataset.id);
+        const canvas = card.querySelector('[data-role="canvas"]');
+        const box = card.querySelector('[data-role="preview-box"]');
+        if (item && canvas && box) {
+          setupPreviewCanvas(item, box, canvas);
+          updateCardMeta(card, item);
+        }
+      });
+      refreshStats();
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve({ file, img });
+            img.onerror = reject;
+            img.src = reader.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      loaded.forEach(({ file, img }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img: cacheImage(img),
+          originalImg: cacheImage(img),
+          selected: true,
+          crop: defaultCrop(),
+          edit: defaultEdit()
+        });
+      });
+
+      renderGrid();
+      recordHistory();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function applyGlobalValues() {
+      const targets = targetItems();
+      if (!targets.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit.brightness = Number(controls.brightness.value);
+        item.edit.contrast = Number(controls.contrast.value);
+        item.edit.saturation = Number(controls.saturation.value);
+        item.edit.warmth = Number(controls.warmth.value);
+        item.edit.sharpness = Number(controls.sharpness.value);
+        item.edit.zoom = Number(controls.zoom.value);
+      });
+
+      renderGrid();
+      setStatus(`Werte auf ${targets.length} Bild${targets.length === 1 ? '' : 'er'} angewendet`);
+    }
+
+    function fitTargets() {
+      const targets = targetItems();
+      if (!targets.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+      });
+
+      renderGrid();
+      setStatus(`Einpassung auf ${targets.length} Bild${targets.length === 1 ? '' : 'er'} gesetzt`);
+    }
+
+    function resetSelected() {
+      const targets = selectedItems();
+      if (!targets.length) {
+        setStatus('Keine Bilder markiert');
+        return;
+      }
+
+      targets.forEach(item => {
+        item.edit = defaultEdit();
+      });
+
+      renderGrid();
+      setStatus(`${targets.length} Bild${targets.length === 1 ? '' : 'er'} zurueckgesetzt`);
+    }
+
+    function applySquarePackToItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      const padding = Number(controls.padding.value);
+      items.forEach(item => {
+        const bounds = getAlphaBounds(item.img);
+        item.crop = buildSquareCropFromBounds(bounds, padding);
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+      });
+
+      renderGrid();
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} quadratisch mit ${padding}% Padding gepackt`);
+    }
+
+    function syncActiveSquarePadding(items, announce = false) {
+      const padding = Number(controls.padding.value);
+      const activeItems = items.filter(item => hasActiveCrop(item));
+      if (!activeItems.length) {
+        return;
+      }
+
+      activeItems.forEach(item => {
+        const bounds = getAlphaBounds(item.img);
+        item.crop = buildSquareCropFromBounds(bounds, padding);
+      });
+
+      renderGrid();
+      if (announce) {
+        setStatus(`Padding auf ${activeItems.length} Quadrat-Bild${activeItems.length === 1 ? '' : 'er'} aktualisiert`);
+      }
+    }
+
+    function restoreOriginalForItems(items) {
+      if (!items.length) {
+        setStatus('Keine Zielbilder markiert');
+        return;
+      }
+
+      let restored = 0;
+      items.forEach(item => {
+        const hadCrop = hasActiveCrop(item);
+        const hadEdit = JSON.stringify(item.edit) !== JSON.stringify(defaultEdit());
+        item.img = item.originalImg;
+        item.crop = defaultCrop();
+        item.edit = defaultEdit();
+        if (hadCrop || hadEdit) {
+          restored += 1;
+        }
+      });
+
+      renderGrid();
+      setStatus(restored ? `${restored} Bild${restored === 1 ? '' : 'er'} auf Original zurueckgesetzt` : 'Auswahl ist bereits im Originalzustand');
+    }
+
+    function buildExportCanvas(item) {
+      const upscale = clamp(Number(controls.upscale.value) || 1, 1, 4);
+      const source = getSourceRect(item);
+      const ratio = hasActiveCrop(item) ? { w: 1, h: 1 } : ratioParts(controls.ratio.value);
+
+      let outW = Math.max(1, Math.round(source.width * upscale));
+      let outH = Math.round((ratio.h / ratio.w) * outW);
+
+      if (!hasActiveCrop(item) && controls.ratio.value === 'free') {
+        outW = Math.max(1, Math.round(item.img.width * upscale));
+        outH = Math.max(1, Math.round(item.img.height * upscale));
+      } else if (hasActiveCrop(item)) {
+        outW = Math.max(1, Math.round(source.width * upscale));
+        outH = outW;
+      }
+
+      const out = document.createElement('canvas');
+      out.width = outW;
+      out.height = outH;
+
+      const ctx = out.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      const mime = controls.format.value;
+      const quality = clamp(Number(controls.quality.value) || 0.92, 0.1, 1);
+      const bgFill = controls.bgFill.value;
+
+      if (bgFill === 'white' || (bgFill === 'transparent' && mime === 'image/jpeg')) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, outW, outH);
+      } else if (bgFill === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, outW, outH);
+      }
+
+      ctx.save();
+      ctx.filter = `brightness(${item.edit.brightness}%) contrast(${item.edit.contrast}%) saturate(${item.edit.saturation}%)`;
+      drawItemIntoFrame(ctx, item, out);
+      ctx.restore();
+
+      if (item.edit.warmth !== 0 || item.edit.sharpness !== 0) {
+        applyCanvasPostEffects(ctx, out, item.edit.warmth, item.edit.sharpness, true);
+      }
+
+      const base = item.name.replace(/\.[^.]+$/, '');
+      return { out, mime, quality, upscale, base };
+    }
+
+    function downloadCanvas(canvas, filenameBase, mime, quality) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL(mime, quality);
+      link.download = `${filenameBase}.${fileExtFromMime(mime)}`;
+      link.click();
+    }
+
+    function exportItem(item) {
+      const result = buildExportCanvas(item);
+      downloadCanvas(result.out, `${result.base}-edited-${result.upscale}x`, result.mime, result.quality);
+    }
+
+    async function splitItemIntoFour(item) {
+      const result = buildExportCanvas(item);
+      const out = result.out;
+      const halfW = Math.floor(out.width / 2);
+      const halfH = Math.floor(out.height / 2);
+
+      const parts = [
+        { name: 'oben-links', sx: 0, sy: 0, sw: halfW, sh: halfH },
+        { name: 'oben-rechts', sx: halfW, sy: 0, sw: out.width - halfW, sh: halfH },
+        { name: 'unten-links', sx: 0, sy: halfH, sw: halfW, sh: out.height - halfH },
+        { name: 'unten-rechts', sx: halfW, sy: halfH, sw: out.width - halfW, sh: out.height - halfH }
+      ];
+
+      for (const part of parts) {
+        const tile = document.createElement('canvas');
+        tile.width = part.sw;
+        tile.height = part.sh;
+        const tctx = tile.getContext('2d');
+        tctx.imageSmoothingEnabled = true;
+        tctx.imageSmoothingQuality = 'high';
+        tctx.drawImage(out, part.sx, part.sy, part.sw, part.sh, 0, 0, part.sw, part.sh);
+        downloadCanvas(tile, `${result.base}-${part.name}-${result.upscale}x`, result.mime, result.quality);
+        await new Promise(resolve => setTimeout(resolve, 180));
+      }
+    }
+
+    async function exportItems(items) {
+      if (!items.length) {
+        setStatus('Nichts zum Exportieren markiert');
+        return;
+      }
+
+      setStatus(`Exportiere ${items.length} Bild${items.length === 1 ? '' : 'er'}...`);
+      for (const item of items) {
+        exportItem(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} exportiert`);
+    }
+
+    async function splitItemsIntoFour(items) {
+      if (!items.length) {
+        setStatus('Keine Bilder zum Zerlegen markiert');
+        return;
+      }
+
+      setStatus(`Zerlege ${items.length} Bild${items.length === 1 ? '' : 'er'} in 4 Teile...`);
+      for (const item of items) {
+        await splitItemIntoFour(item);
+        await new Promise(resolve => setTimeout(resolve, 220));
+      }
+      setStatus(`${items.length} Bild${items.length === 1 ? '' : 'er'} in 4 Teile exportiert`);
+    }
+
+    function clearAll() {
+      state.items = [];
+      filesInput.value = '';
+      renderGrid();
+      setStatus('Alles geloescht');
+    }
+
+    function itemFromCard(element) {
+      const card = element.closest('.card');
+      if (!card) {
+        return null;
+      }
+      return state.items.find(item => item.id === card.dataset.id) || null;
+    }
+
+    function getCanvasPoint(event, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) * (canvas.width / rect.width),
+        y: (event.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function applyCropDrag(item, mode, startCrop, dx, dy) {
+      const minSize = 24;
+      const maxSize = Math.max(item.img.width, item.img.height) * 4;
+
+      if (mode === 'move') {
+        item.crop.x = startCrop.x + dx;
+        item.crop.y = startCrop.y + dy;
+        return;
+      }
+
+      const right = startCrop.x + startCrop.size;
+      const bottom = startCrop.y + startCrop.size;
+      let nextCrop = { ...startCrop };
+
+      if (mode === 'nw') {
+        const nextSize = clamp(Math.max(right - (startCrop.x + dx), bottom - (startCrop.y + dy)), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: right - nextSize, y: bottom - nextSize, size: nextSize };
+      }
+
+      if (mode === 'ne') {
+        const nextSize = clamp(Math.max((startCrop.x + startCrop.size + dx) - startCrop.x, bottom - (startCrop.y + dy)), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: startCrop.x, y: bottom - nextSize, size: nextSize };
+      }
+
+      if (mode === 'sw') {
+        const nextSize = clamp(Math.max(right - (startCrop.x + dx), (startCrop.y + startCrop.size + dy) - startCrop.y), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: right - nextSize, y: startCrop.y, size: nextSize };
+      }
+
+      if (mode === 'se') {
+        const nextSize = clamp(Math.max((startCrop.x + startCrop.size + dx) - startCrop.x, (startCrop.y + startCrop.size + dy) - startCrop.y), minSize, maxSize);
+        nextCrop = { ...nextCrop, x: startCrop.x, y: startCrop.y, size: nextSize };
+      }
+
+      item.crop = nextCrop;
+    }
+
+    filesInput.addEventListener('change', event => loadFiles(event.target.files));
+
+    [controls.brightness, controls.contrast, controls.saturation, controls.warmth, controls.sharpness, controls.zoom, controls.padding].forEach(control => {
+      control.addEventListener('input', updateLabels);
+      control.addEventListener('change', updateLabels);
+    });
+
+    controls.padding.addEventListener('input', () => {
+      syncActiveSquarePadding(targetItems(), false);
+    });
+
+    controls.padding.addEventListener('change', () => {
+      syncActiveSquarePadding(targetItems(), true);
+      recordHistory();
+    });
+
+    controls.ratio.addEventListener('change', () => {
+      updateLabels();
+      renderGrid();
+      recordHistory();
+    });
+
+    controls.columns.addEventListener('change', () => {
+      renderGrid();
+      recordHistory();
+    });
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = true;
+      });
+      renderGrid();
+      recordHistory();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = false;
+      });
+      renderGrid();
+      recordHistory();
+      setStatus('Markierung geloescht');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      clearAll();
+      recordHistory();
+    });
+    applyBtn.addEventListener('click', () => {
+      applyGlobalValues();
+      recordHistory();
+    });
+    fitBtn.addEventListener('click', () => {
+      fitTargets();
+      recordHistory();
+    });
+    resetSelectedBtn.addEventListener('click', () => {
+      resetSelected();
+      recordHistory();
+    });
+    squarePackBtn.addEventListener('click', () => {
+      applySquarePackToItems(targetItems());
+      recordHistory();
+    });
+    restoreOriginalBtn.addEventListener('click', () => {
+      restoreOriginalForItems(targetItems());
+      recordHistory();
+    });
+    downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
+    downloadAllBtn.addEventListener('click', () => exportItems(state.items));
+    splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
+    splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
+
+    imageGrid.addEventListener('change', event => {
+      if (!event.target.matches('input[type="checkbox"]')) {
+        return;
+      }
+
+      const item = itemFromCard(event.target);
+      if (!item) {
+        return;
+      }
+
+      item.selected = event.target.checked;
+      event.target.closest('.card').classList.toggle('selected', item.selected);
+      refreshStats();
+      recordHistory();
+    });
+
+    imageGrid.addEventListener('click', event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) {
+        return;
+      }
+
+      const item = itemFromCard(button);
+      if (!item) {
+        return;
+      }
+
+      const action = button.dataset.action;
+
+      if (action === 'fit') {
+        item.edit.zoom = 100;
+        item.edit.panX = 0;
+        item.edit.panY = 0;
+        renderGrid();
+        recordHistory();
+        setStatus(`Eingepasst: ${item.name}`);
+      }
+
+      if (action === 'reset') {
+        item.edit = defaultEdit();
+        renderGrid();
+        recordHistory();
+        setStatus(`Zurueckgesetzt: ${item.name}`);
+      }
+
+      if (action === 'square-pack') {
+        applySquarePackToItems([item]);
+        recordHistory();
+      }
+
+      if (action === 'restore-original') {
+        restoreOriginalForItems([item]);
+        recordHistory();
+      }
+
+      if (action === 'export') {
+        exportItem(item);
+        setStatus(`Exportiert: ${item.name}`);
+      }
+
+      if (action === 'split') {
+        splitItemIntoFour(item);
+        setStatus(`In 4 Teile zerlegt: ${item.name}`);
+      }
+    });
+
+    imageGrid.addEventListener('pointerdown', event => {
+      const overlay = event.target.closest('[data-role="crop-overlay"]');
+      if (overlay) {
+        const item = itemFromCard(overlay);
+        if (!item || !hasActiveCrop(item)) {
+          return;
+        }
+
+        const card = overlay.closest('.card');
+        const canvas = card ? card.querySelector('[data-role="canvas"]') : null;
+        if (!canvas) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const point = getCanvasPoint(event, canvas);
+        const placement = getFittedPlacement(item.img, canvas);
+        const mode = event.target.dataset.handle || 'move';
+
+        state.cropDrag = {
+          id: item.id,
+          mode,
+          startX: point.x,
+          startY: point.y,
+          startCrop: { ...item.crop },
+          scale: placement.scale,
+          overlay
+        };
+
+        overlay.setPointerCapture(event.pointerId);
+        return;
+      }
+
+      const canvas = event.target.closest('canvas');
+      if (!canvas) {
+        return;
+      }
+
+      const item = itemFromCard(canvas);
+      if (!item || hasActiveCrop(item)) {
+        return;
+      }
+
+      event.preventDefault();
+      const point = getCanvasPoint(event, canvas);
+
+      state.dragging = {
+        id: item.id,
+        startX: point.x,
+        startY: point.y,
+        panX: item.edit.panX,
+        panY: item.edit.panY,
+        canvas
+      };
+
+      canvas.setPointerCapture(event.pointerId);
+      canvas.style.cursor = 'grabbing';
+    });
+
+    imageGrid.addEventListener('pointermove', event => {
+      if (state.cropDrag) {
+        const item = state.items.find(entry => entry.id === state.cropDrag.id);
+        const overlay = state.cropDrag.overlay;
+        const card = overlay ? overlay.closest('.card') : null;
+        const canvas = card ? card.querySelector('[data-role="canvas"]') : null;
+        const box = card ? card.querySelector('[data-role="preview-box"]') : null;
+        if (!item || !canvas || !box || !state.cropDrag.scale) {
+          return;
+        }
+
+        const point = getCanvasPoint(event, canvas);
+        const dx = (point.x - state.cropDrag.startX) / state.cropDrag.scale;
+        const dy = (point.y - state.cropDrag.startY) / state.cropDrag.scale;
+        applyCropDrag(item, state.cropDrag.mode, state.cropDrag.startCrop, dx, dy);
+        drawPreview(item, canvas);
+        updateCropOverlay(item, box, canvas);
+        updateCardMeta(card, item);
+        return;
+      }
+
+      if (!state.dragging) {
+        return;
+      }
+
+      const canvas = state.dragging.canvas;
+      const item = state.items.find(entry => entry.id === state.dragging.id);
+      if (!canvas || !item) {
+        return;
+      }
+
+      const point = getCanvasPoint(event, canvas);
+      item.edit.panX = state.dragging.panX + (point.x - state.dragging.startX);
+      item.edit.panY = state.dragging.panY + (point.y - state.dragging.startY);
+
+      drawPreview(item, canvas);
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) {
+        row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      }
+    });
+
+    function endDrag(event) {
+      if (state.cropDrag) {
+        try {
+          state.cropDrag.overlay.releasePointerCapture(event.pointerId);
+        } catch (error) {}
+        state.cropDrag = null;
+      }
+
+      if (!state.dragging) {
+        return;
+      }
+
+      try {
+        state.dragging.canvas.releasePointerCapture(event.pointerId);
+      } catch (error) {}
+      state.dragging.canvas.style.cursor = 'grab';
+      state.dragging = null;
+      recordHistory();
+    }
+
+    imageGrid.addEventListener('pointerup', endDrag);
+    imageGrid.addEventListener('pointercancel', endDrag);
+
+    imageGrid.addEventListener('wheel', event => {
+      const canvas = event.target.closest('canvas');
+      if (!canvas) {
+        return;
+      }
+
+      const item = itemFromCard(canvas);
+      if (!item || hasActiveCrop(item)) {
+        return;
+      }
+
+      event.preventDefault();
+      item.edit.zoom = clamp(item.edit.zoom + (event.deltaY < 0 ? 6 : -6), 20, 400);
+      drawPreview(item, canvas);
+
+      const row = canvas.closest('.card')?.querySelector('.mini-row');
+      if (row) {
+        row.innerHTML = `<span>Zoom: ${Math.round(item.edit.zoom)}%</span><span>x ${Math.round(item.edit.panX)} / y ${Math.round(item.edit.panY)}</span>`;
+      }
+      recordHistory();
+    }, { passive: false });
+
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__editorOnlyResizeTimer);
+      window.__editorOnlyResizeTimer = setTimeout(() => {
+        refreshVisibleCanvases();
+      }, 80);
+    });
+
+    window.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        redoHistory();
+      }
+    });
+
+    updateLabels();
+    renderGrid();
+    recordHistory();
+  </script>
+</body>
+</html>

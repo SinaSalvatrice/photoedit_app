@@ -1,5 +1,5 @@
 {
-  "name": "html_stuff",
+  "name": "photoedit-app",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,16 +8,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SinaSalvatrice/html_stuff.git"
+  "url": "git+https://github.com/SinaSalvatrice/photoedit-app.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/SinaSalvatrice/html_stuff/issues"
+    "url": "https://github.com/SinaSalvatrice/photoedit-app/issues"
   },
-  "homepage": "https://github.com/SinaSalvatrice/html_stuff#readme",
+  "homepage": "https://github.com/SinaSalvatrice/photoedit-app#readme",
   "dependencies": {
     "@capacitor/android": "^8.3.0",
     "@capacitor/cli": "^8.3.0",

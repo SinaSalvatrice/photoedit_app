@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nur Showcasing</title>
+  <style>
+    :root {
+      --bg: #0b1118;
+      --panel: rgba(18, 25, 34, 0.96);
+      --panel-2: #1d2734;
+      --line: #344253;
+      --text: #edf3f9;
+      --muted: #aab6c5;
+      --accent: #6ea1ff;
+      --accent-2: #4d78cc;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(110, 161, 255, 0.12), transparent 28%),
+        linear-gradient(180deg, #091018 0%, #0e141c 100%);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body { padding: 16px; }
+
+    .app {
+      max-width: 1640px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .mobile-sheet-head,
+    .mobile-fab,
+    .mobile-backdrop {
+      display: none;
+    }
+
+    .mobile-sheet-head {
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px 0;
+      background: linear-gradient(180deg, rgba(18, 25, 34, 0.98), rgba(18, 25, 34, 0.9));
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    .mobile-sheet-title {
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    .mobile-sheet-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child { border-bottom: 0; }
+
+    h1, h2, p { margin: 0; }
+    h1 {
+      font-size: 1.18rem;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.48;
+      margin-bottom: 14px;
+    }
+
+    .controls,
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .row { display: grid; gap: 7px; }
+
+    .triple {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 0.87rem;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    input[type="number"],
+    input[type="range"],
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed #4a596d;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #39485b;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #4263a4;
+      background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-size: 0.94rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      border-color: #3b4a5f;
+      color: var(--text);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .hint {
+      border: 1px solid rgba(110, 161, 255, 0.2);
+      background: rgba(110, 161, 255, 0.08);
+      color: #dbe8ff;
+      border-radius: 14px;
+      padding: 12px;
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+
+    .thumbs {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .thumb {
+      display: grid;
+      grid-template-columns: 18px 72px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      border-radius: 16px;
+      border: 1px solid #324053;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .thumb.selected {
+      border-color: var(--accent);
+      background: rgba(110, 161, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(110, 161, 255, 0.2);
+    }
+
+    .thumb input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .thumb img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .thumb-name {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .thumb-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 32px);
+    }
+
+    .topbar {
+      padding: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .status {
+      border: 1px solid #354458;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .stat {
+      min-width: 120px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid #3b495d;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .stat .k {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+    }
+
+    .stat .v {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .stage-wrap {
+      padding: 18px;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 560px;
+      overflow: auto;
+      border-radius: 22px;
+      border: 1px solid #364458;
+      background:
+        radial-gradient(circle at top left, rgba(110, 161, 255, 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+        #0b1016;
+    }
+
+    .stage-inner {
+      position: relative;
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    .empty {
+      position: absolute;
+      inset: 24px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px dashed #4a596d;
+      background: rgba(255, 255, 255, 0.02);
+      line-height: 1.5;
+    }
+
+    .showcase-item {
+      position: absolute;
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(14, 19, 27, 0.94);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .showcase-item.dragging {
+      cursor: grabbing;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.34);
+      z-index: 2;
+    }
+
+    .showcase-item.swap-target {
+      box-shadow: 0 0 0 2px rgba(110, 161, 255, 0.85), 0 22px 48px rgba(0, 0, 0, 0.22);
+      border-color: rgba(110, 161, 255, 0.8);
+    }
+
+    .showcase-item.selected {
+      box-shadow: 0 0 0 2px rgba(110, 161, 255, 0.65), 0 20px 42px rgba(0, 0, 0, 0.28);
+      border-color: rgba(110, 161, 255, 0.72);
+    }
+
+    .showcase-item canvas {
+      display: block;
+      width: 100%;
+      background: transparent;
+    }
+
+    .showcase-item.is-empty {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+        rgba(14, 19, 27, 0.72);
+      border-style: dashed;
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .showcase-item.is-empty .showcase-label {
+      color: #c2cedd;
+    }
+
+    .showcase-label {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mobile-fab {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 35;
+      align-items: center;
+      justify-content: center;
+      min-width: 136px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    @media (max-width: 1120px) {
+      body { padding: 12px; }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace {
+        min-height: calc(100vh - 24px);
+      }
+
+      .stage-wrap {
+        padding: 12px;
+        padding-bottom: 84px;
+      }
+
+      .stage {
+        min-height: calc(100vh - 250px);
+      }
+
+      .sidebar {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        top: auto;
+        max-height: min(82vh, calc(100vh - 24px));
+        z-index: 40;
+        overflow: auto;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(calc(100% + 24px));
+        transition: transform 0.24s ease, opacity 0.24s ease;
+        border-radius: 28px;
+      }
+
+      .mobile-sheet-head,
+      .mobile-fab,
+      .mobile-backdrop {
+        display: flex;
+      }
+
+      .mobile-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 10, 16, 0.72);
+        backdrop-filter: blur(4px);
+        z-index: 30;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+
+      body.mobile-controls-open {
+        overflow: hidden;
+      }
+
+      body.mobile-controls-open .sidebar {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      body.mobile-controls-open .mobile-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      body.mobile-controls-open .mobile-fab {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(10px);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .triple {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stat {
+        min-width: 0;
+      }
+
+      .status {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="mobile-sheet-head">
+        <div>
+          <div class="mobile-sheet-title">Werkzeuge</div>
+          <div class="mobile-sheet-sub">Buehne sichtbar lassen, Bearbeitung als Editor-Feld von unten.</div>
+        </div>
+        <button id="closeMobileControlsBtn" class="secondary" type="button">Schliessen</button>
+      </div>
+
+      <div class="section">
+        <h1>Showcase Tool</h1>
+        <p class="sub">Nur fuer Layout, Auswahl und Export. Bilder laden, Raster bauen, Kacheln ziehen und die Komposition direkt als PNG ausgeben.</p>
+
+        <div class="controls">
+          <div class="row">
+            <label for="files">Bilder laden</label>
+            <input id="files" type="file" accept="image/*" multiple />
+          </div>
+
+          <div class="button-row">
+            <button id="selectAllBtn" class="secondary">Alle markieren</button>
+            <button id="selectNoneBtn" class="secondary">Keine markieren</button>
+            <button id="clearBtn" class="secondary">Alles entfernen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Layout</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="showcaseSource">Showcase fuellen mit</label>
+            <select id="showcaseSource">
+              <option value="selected">Markierten Bildern</option>
+              <option value="all">Allen Bildern</option>
+            </select>
+          </div>
+
+          <div class="triple">
+            <div class="row">
+              <label for="showcaseColumns">Spalten</label>
+              <input id="showcaseColumns" type="number" min="1" max="8" step="1" value="3" />
+            </div>
+
+            <div class="row">
+              <label for="showcaseRows">Zeilen</label>
+              <input id="showcaseRows" type="number" min="1" max="20" step="1" value="2" />
+            </div>
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseGap">Abstand</label><span id="showcaseGapVal">24 px</span></div>
+              <input id="showcaseGap" type="range" min="0" max="80" value="24" />
+            </div>
+
+          </div>
+
+          <div class="triple">
+
+            <div class="row">
+              <div class="value-row"><label for="showcaseTileWidth">Kachelbreite</label><span id="showcaseTileWidthVal">260 px</span></div>
+              <input id="showcaseTileWidth" type="range" min="160" max="420" value="260" />
+            </div>
+
+            <div class="hint" style="display:flex;align-items:center;justify-content:center;text-align:center;">
+              Rastergroesse direkt ueber Zeilen und Spalten steuern.
+            </div>
+          </div>
+
+          <div class="row">
+            <label for="showcaseBg">Hintergrund fuer Export</label>
+            <select id="showcaseBg">
+              <option value="transparent">Transparent</option>
+              <option value="white">Weiss</option>
+              <option value="black">Schwarz</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="showcasePopulateBtn">Raster fuellen</button>
+            <button id="showcaseArrangeBtn" class="secondary">Automatisch ausrichten</button>
+            <button id="showcaseExportBtn" class="secondary">Als PNG exportieren</button>
+          </div>
+
+          <div class="button-row">
+            <select id="showcaseEmptyCount" style="max-width:120px;">
+              <option value="1">1 leer</option>
+              <option value="2">2 leer</option>
+              <option value="3">3 leer</option>
+              <option value="4">4 leer</option>
+              <option value="5">5 leer</option>
+              <option value="6">6 leer</option>
+            </select>
+            <button id="showcaseAddEmptyBtn" class="secondary">Leere Kachel hinzufuegen</button>
+          </div>
+
+          <div class="row">
+            <div class="value-row"><label for="showcaseImageScale">Aktive Bildgroesse</label><span id="showcaseImageScaleVal">-</span></div>
+            <input id="showcaseImageScale" type="range" min="40" max="260" value="100" disabled />
+          </div>
+
+          <div class="button-row">
+            <button id="showcaseAutoSizeBtn" class="secondary">Motive angleichen</button>
+          </div>
+
+          <div class="hint">
+            Kachel anklicken, dann die Bildgroesse einzeln anpassen oder automatisch angleichen. Mit <strong>R</strong> wird das Raster neu ausgerichtet.
+          </div>
+
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Wortbau</h2>
+        <div class="stack">
+          <div class="row">
+            <label for="wordBuilderInput">Wort oder Satz</label>
+            <input id="wordBuilderInput" type="text" placeholder="z.B. HALLO WELT" />
+          </div>
+
+          <div class="button-row">
+            <button id="wordBuildBtn" class="secondary" type="button">Wort ins Showcase</button>
+            <button id="duplicateLetterBtn" class="secondary" type="button">Aktive Kachel duplizieren</button>
+          </div>
+
+          <div class="hint">
+            Buchstaben werden ueber Dateinamen gefunden, zum Beispiel <strong>A.png</strong> oder <strong>b.webp</strong>.
+            Wiederholte Buchstaben wie in <strong>HALLO</strong> werden automatisch mehrfach eingesetzt.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Bilder</h2>
+        <div id="thumbs" class="thumbs"></div>
+      </div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="topbar">
+        <div>
+          <h2>Showcase-Buehne</h2>
+          <p class="sub" style="margin: 6px 0 0 0;">Frei verschiebbare Bildkacheln mit automatischer Rasterverteilung und PNG-Export.</p>
+
+          <div class="summary">
+            <div class="stat">
+              <div class="k">Bilder</div>
+              <div id="statCount" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Markiert</div>
+              <div id="statSelected" class="v">0</div>
+            </div>
+            <div class="stat">
+              <div class="k">Im Showcase</div>
+              <div id="statShowcase" class="v">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="statusText" class="status">Bereit</div>
+      </div>
+
+      <div class="stage-wrap">
+        <div id="showcaseStage" class="stage">
+          <div id="showcaseStageInner" class="stage-inner">
+            <div id="showcaseEmpty" class="empty">Noch kein Showcase-Raster erstellt. Bilder laden und dann das Layout mit den markierten oder allen Bildern fuellen.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <button id="openMobileControlsBtn" class="mobile-fab secondary" type="button">Werkzeuge</button>
+  <div id="mobileBackdrop" class="mobile-backdrop"></div>
+
+  <script>
+    const filesInput = document.getElementById('files');
+    const thumbs = document.getElementById('thumbs');
+    const statusText = document.getElementById('statusText');
+    const statCount = document.getElementById('statCount');
+    const statSelected = document.getElementById('statSelected');
+    const statShowcase = document.getElementById('statShowcase');
+    const showcaseStage = document.getElementById('showcaseStage');
+    const showcaseStageInner = document.getElementById('showcaseStageInner');
+    const showcaseEmpty = document.getElementById('showcaseEmpty');
+
+    const controls = {
+      source: document.getElementById('showcaseSource'),
+      columns: document.getElementById('showcaseColumns'),
+      rows: document.getElementById('showcaseRows'),
+      gap: document.getElementById('showcaseGap'),
+      tileWidth: document.getElementById('showcaseTileWidth'),
+      imageScale: document.getElementById('showcaseImageScale'),
+      bg: document.getElementById('showcaseBg'),
+      emptyCount: document.getElementById('showcaseEmptyCount'),
+      wordText: document.getElementById('wordBuilderInput')
+    };
+
+    const labels = {
+      gap: document.getElementById('showcaseGapVal'),
+      tileWidth: document.getElementById('showcaseTileWidthVal'),
+      imageScale: document.getElementById('showcaseImageScaleVal')
+    };
+
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
+    const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
+    const showcaseExportBtn = document.getElementById('showcaseExportBtn');
+    const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
+    const showcaseAutoSizeBtn = document.getElementById('showcaseAutoSizeBtn');
+    const wordBuildBtn = document.getElementById('wordBuildBtn');
+    const duplicateLetterBtn = document.getElementById('duplicateLetterBtn');
+    const openMobileControlsBtn = document.getElementById('openMobileControlsBtn');
+    const closeMobileControlsBtn = document.getElementById('closeMobileControlsBtn');
+    const mobileBackdrop = document.getElementById('mobileBackdrop');
+    const historyRow = document.createElement('div');
+    historyRow.className = 'button-row';
+    historyRow.innerHTML = '<button id="undoBtn" class="secondary" type="button">Undo</button><button id="redoBtn" class="secondary" type="button">Redo</button>';
+    clearBtn.parentElement?.insertAdjacentElement('afterend', historyRow);
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+
+    const state = {
+      items: [],
+      pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+      showcase: {
+        items: [],
+        dragging: null,
+        boardPadding: 28,
+        tileAspect: 0.84,
+        labelHeight: 34,
+        emptyCounter: 0,
+        selectedId: null
+      }
+    };
+    const historyState = {
+      past: [],
+      future: [],
+      restoring: false,
+      lastKey: '',
+      limit: 100
+    };
+    const imageCache = new Map();
+    const subjectBoundsCache = new Map();
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function cacheImage(img) {
+      if (img?.src) {
+        imageCache.set(img.src, img);
+      }
+      return img;
+    }
+
+    function restoreImage(src) {
+      if (!src) return null;
+      if (imageCache.has(src)) {
+        return imageCache.get(src);
+      }
+      const img = new Image();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
+    function controlSnapshot() {
+      return {
+        source: controls.source.value,
+        columns: controls.columns.value,
+        rows: controls.rows.value,
+        gap: controls.gap.value,
+        tileWidth: controls.tileWidth.value,
+        bg: controls.bg.value,
+        emptyCount: controls.emptyCount.value,
+        wordText: controls.wordText.value
+      };
+    }
+
+    function applyControlSnapshot(snapshot) {
+      controls.source.value = snapshot.source;
+      controls.columns.value = snapshot.columns;
+      controls.rows.value = snapshot.rows;
+      controls.gap.value = snapshot.gap;
+      controls.tileWidth.value = snapshot.tileWidth;
+      controls.bg.value = snapshot.bg;
+      controls.emptyCount.value = snapshot.emptyCount;
+      controls.wordText.value = snapshot.wordText || '';
+    }
+
+    function createSnapshot() {
+      return {
+        controls: controlSnapshot(),
+        items: state.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          src: item.img.src,
+          selected: item.selected
+        })),
+        showcase: {
+          emptyCounter: state.showcase.emptyCounter,
+          items: state.showcase.items.map(entry => ({ ...entry }))
+        }
+      };
+    }
+
+    function applySnapshot(snapshot) {
+      historyState.restoring = true;
+      applyControlSnapshot(snapshot.controls);
+      state.items = (snapshot.items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        img: restoreImage(item.src),
+        selected: item.selected
+      }));
+      state.showcase.items = (snapshot.showcase?.items || []).map(entry => ({ ...entry }));
+      state.showcase.emptyCounter = snapshot.showcase?.emptyCounter || 0;
+      state.showcase.selectedId = null;
+      historyState.lastKey = JSON.stringify(snapshot);
+      filesInput.value = '';
+      updateLabels();
+      renderThumbs();
+      renderShowcase();
+      historyState.restoring = false;
+      syncHistoryButtons();
+    }
+
+    function syncHistoryButtons() {
+      undoBtn.disabled = historyState.past.length < 2;
+      redoBtn.disabled = historyState.future.length < 1;
+    }
+
+    function recordHistory() {
+      if (historyState.restoring) return;
+      const snapshot = createSnapshot();
+      const key = JSON.stringify(snapshot);
+      if (key === historyState.lastKey) {
+        syncHistoryButtons();
+        return;
+      }
+      historyState.past.push(snapshot);
+      if (historyState.past.length > historyState.limit) {
+        historyState.past.shift();
+      }
+      historyState.future = [];
+      historyState.lastKey = key;
+      syncHistoryButtons();
+    }
+
+    function undoHistory() {
+      if (historyState.past.length < 2) return;
+      const current = historyState.past.pop();
+      historyState.future.push(current);
+      applySnapshot(historyState.past[historyState.past.length - 1]);
+      setStatus('Undo');
+    }
+
+    function redoHistory() {
+      if (!historyState.future.length) return;
+      const snapshot = historyState.future.pop();
+      historyState.past.push(snapshot);
+      applySnapshot(snapshot);
+      setStatus('Redo');
+    }
+
+    function updateLabels() {
+      labels.gap.textContent = `${controls.gap.value} px`;
+      labels.tileWidth.textContent = `${controls.tileWidth.value} px`;
+    }
+
+    function activeShowcaseEntry() {
+      return state.showcase.items.find(entry => entry.id === state.showcase.selectedId) || null;
+    }
+
+    function syncActiveTileControls() {
+      const entry = activeShowcaseEntry();
+      const isEditable = entry && !isEmptyShowcaseEntry(entry);
+
+      controls.imageScale.disabled = !isEditable;
+      if (!isEditable) {
+        controls.imageScale.value = '100';
+        labels.imageScale.textContent = '-';
+        return;
+      }
+
+      const percent = clamp(Math.round((entry.scale || 1) * 100), 40, 260);
+      controls.imageScale.value = String(percent);
+      labels.imageScale.textContent = `${percent} %`;
+    }
+
+    function isCompactLayout() {
+      return window.matchMedia('(max-width: 1120px)').matches;
+    }
+
+    function syncMobileControlsUi() {
+      if (!openMobileControlsBtn) {
+        return;
+      }
+
+      const isOpen = document.body.classList.contains('mobile-controls-open');
+      openMobileControlsBtn.textContent = isOpen ? 'Werkzeuge offen' : 'Werkzeuge';
+      openMobileControlsBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    function setMobileControlsOpen(isOpen) {
+      const nextOpen = isCompactLayout() && isOpen;
+      document.body.classList.toggle('mobile-controls-open', nextOpen);
+      syncMobileControlsUi();
+    }
+
+    function updateStats() {
+      statCount.textContent = String(state.items.length);
+      statSelected.textContent = String(state.items.filter(item => item.selected).length);
+      statShowcase.textContent = String(state.showcase.items.length);
+    }
+
+    function selectedItems() {
+      return state.items.filter(item => item.selected);
+    }
+
+    function showcaseSourceItems() {
+      return controls.source.value === 'all' ? state.items : selectedItems();
+    }
+
+    function showcaseItemById(sourceId) {
+      return state.items.find(item => item.id === sourceId) || null;
+    }
+
+    function isEmptyShowcaseEntry(entry) {
+      return Boolean(entry?.isEmpty);
+    }
+
+    function createShowcaseEntryFromItem(item, metrics = getShowcaseMetrics(), overrides = {}) {
+      return {
+        id: crypto.randomUUID(),
+        sourceId: item.id,
+        x: 0,
+        y: 0,
+        width: metrics.tileWidth,
+        height: metrics.tileHeight,
+        scale: 1,
+        ...overrides
+      };
+    }
+
+    function createEmptyShowcaseEntry(metrics = getShowcaseMetrics()) {
+      state.showcase.emptyCounter += 1;
+      return {
+        id: crypto.randomUUID(),
+        sourceId: null,
+        isEmpty: true,
+        name: `Leer ${state.showcase.emptyCounter}`,
+        x: 0,
+        y: 0,
+        width: metrics.tileWidth,
+        height: metrics.tileHeight,
+        scale: 1
+      };
+    }
+
+    function getGridSlotPosition(index, metrics = getShowcaseMetrics()) {
+      const column = index % metrics.columns;
+      const row = Math.floor(index / metrics.columns);
+      return {
+        x: metrics.boardPadding + column * (metrics.tileWidth + metrics.gap),
+        y: metrics.boardPadding + row * (metrics.tileHeight + metrics.gap + metrics.labelHeight)
+      };
+    }
+
+    function getShowcaseMetrics() {
+      const tileWidth = clamp(Number(controls.tileWidth.value) || 260, 160, 420);
+      return {
+        columns: clamp(Number(controls.columns.value) || 3, 1, 8),
+        rows: clamp(Number(controls.rows.value) || 2, 1, 20),
+        gap: clamp(Number(controls.gap.value) || 24, 0, 80),
+        tileWidth,
+        tileHeight: Math.round(tileWidth * state.showcase.tileAspect),
+        boardPadding: state.showcase.boardPadding,
+        labelHeight: state.showcase.labelHeight,
+        capacity: clamp(Number(controls.columns.value) || 3, 1, 8) * clamp(Number(controls.rows.value) || 2, 1, 20)
+      };
+    }
+
+    function sanitizeShowcaseItems() {
+      const validIds = new Set(state.items.map(item => item.id));
+      state.showcase.items = state.showcase.items.filter(item => item.isEmpty || validIds.has(item.sourceId));
+      if (!state.showcase.items.some(entry => entry.id === state.showcase.selectedId && !isEmptyShowcaseEntry(entry))) {
+        state.showcase.selectedId = null;
+      }
+    }
+
+    function getVisibleBounds(img) {
+      if (!img?.src) {
+        return null;
+      }
+
+      if (subjectBoundsCache.has(img.src)) {
+        return subjectBoundsCache.get(img.src);
+      }
+
+      try {
+        const sourceWidth = img.naturalWidth || img.width;
+        const sourceHeight = img.naturalHeight || img.height;
+        const maxSide = 512;
+        const shrink = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(sourceWidth * shrink));
+        canvas.height = Math.max(1, Math.round(sourceHeight * shrink));
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let minX = canvas.width;
+        let minY = canvas.height;
+        let maxX = -1;
+        let maxY = -1;
+
+        for (let y = 0; y < canvas.height; y += 1) {
+          for (let x = 0; x < canvas.width; x += 1) {
+            const alpha = pixels[(y * canvas.width + x) * 4 + 3];
+            if (alpha < 16) {
+              continue;
+            }
+
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+
+        const bounds = maxX >= minX && maxY >= minY
+          ? {
+              found: true,
+              widthRatio: (maxX - minX + 1) / canvas.width,
+              heightRatio: (maxY - minY + 1) / canvas.height
+            }
+          : {
+              found: false,
+              widthRatio: 1,
+              heightRatio: 1
+            };
+
+        subjectBoundsCache.set(img.src, bounds);
+        return bounds;
+      } catch (error) {
+        const fallback = {
+          found: false,
+          widthRatio: 1,
+          heightRatio: 1
+        };
+        subjectBoundsCache.set(img.src, fallback);
+        return fallback;
+      }
+    }
+
+    function getContainedPlacement(img, width, height, imageScale = 1) {
+      const baseScale = Math.min(width / img.width, height / img.height);
+      const drawWidth = img.width * baseScale * imageScale;
+      const drawHeight = img.height * baseScale * imageScale;
+      return {
+        x: (width - drawWidth) / 2,
+        y: (height - drawHeight) / 2,
+        width: drawWidth,
+        height: drawHeight
+      };
+    }
+
+    function drawPreview(item, canvas, options = {}) {
+      const {
+        background = '#0b1016',
+        scale = 1
+      } = options;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (background) {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      const placement = getContainedPlacement(item.img, canvas.width, canvas.height, scale);
+      ctx.drawImage(item.img, placement.x, placement.y, placement.width, placement.height);
+    }
+
+    function baseNameFromFile(filename) {
+      return String(filename || '').replace(/\.[^.]+$/, '');
+    }
+
+    function normalizeWordLookup(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function lookupTokensForItem(item) {
+      const baseName = normalizeWordLookup(baseNameFromFile(item.name));
+      const parts = baseName.split(/[^a-z0-9]+/).filter(Boolean);
+      const compact = baseName.replace(/[^a-z0-9]+/g, '');
+      const tokens = new Set();
+
+      if (compact.length === 1) {
+        tokens.add(compact);
+      }
+
+      parts.forEach(part => {
+        if (part.length === 1) {
+          tokens.add(part);
+        }
+      });
+
+      return [...tokens];
+    }
+
+    function createLetterLookup(items) {
+      const lookup = new Map();
+
+      items.forEach(item => {
+        lookupTokensForItem(item).forEach(token => {
+          if (!lookup.has(token)) {
+            lookup.set(token, item);
+          }
+        });
+      });
+
+      return lookup;
+    }
+
+    function tokenizeWordInput(value) {
+      return Array.from(normalizeWordLookup(value)).filter(char => char === ' ' || /[a-z0-9]/.test(char));
+    }
+
+    function renderThumbs() {
+      thumbs.innerHTML = '';
+
+      if (!state.items.length) {
+        thumbs.innerHTML = '<div class="hint">Noch keine Bilder geladen.</div>';
+        updateStats();
+        return;
+      }
+
+      state.items.forEach(item => {
+        const card = document.createElement('label');
+        card.className = `thumb${item.selected ? ' selected' : ''}`;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.selected;
+        checkbox.addEventListener('change', () => {
+          item.selected = checkbox.checked;
+          renderThumbs();
+          updateStats();
+          recordHistory();
+        });
+
+        const preview = document.createElement('img');
+        preview.src = item.img.src;
+        preview.alt = item.name;
+
+        const meta = document.createElement('div');
+        meta.innerHTML = `<div class="thumb-name">${escapeHtml(item.name)}</div><div class="thumb-meta">${item.img.width} x ${item.img.height} px</div>`;
+
+        card.appendChild(checkbox);
+        card.appendChild(preview);
+        card.appendChild(meta);
+        thumbs.appendChild(card);
+      });
+
+      updateStats();
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function loadFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (!files.length) {
+        return;
+      }
+
+      const loaded = await Promise.all(
+        files.map(file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => resolve({ file, img });
+            img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${file.name}`));
+            img.src = reader.result;
+          };
+          reader.onerror = () => reject(new Error(`Datei konnte nicht gelesen werden: ${file.name}`));
+          reader.readAsDataURL(file);
+        }))
+      );
+
+      loaded.forEach(({ file, img }) => {
+        state.items.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          img: cacheImage(img),
+          selected: true
+        });
+      });
+
+      renderThumbs();
+      renderShowcase();
+      recordHistory();
+      setStatus(`${state.items.length} Bild${state.items.length === 1 ? '' : 'er'} geladen`);
+    }
+
+    function autoArrangeShowcase(announce = true) {
+      sanitizeShowcaseItems();
+
+      if (!state.showcase.items.length) {
+        renderShowcase();
+        if (announce) {
+          setStatus('Keine Bilder im Showcase');
+        }
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      state.showcase.items.forEach((entry, index) => {
+        const slot = getGridSlotPosition(index, metrics);
+        entry.width = metrics.tileWidth;
+        entry.height = metrics.tileHeight;
+        entry.x = slot.x;
+        entry.y = slot.y;
+        entry.scale = entry.scale || 1;
+      });
+
+      renderShowcase();
+      if (announce) {
+        const overflow = state.showcase.items.length > metrics.capacity;
+        setStatus(
+          overflow
+            ? `Showcase ausgerichtet: ${metrics.rows} x ${metrics.columns} angefragt, ${state.showcase.items.length} Bilder brauchen mehr Platz`
+            : `Showcase mit ${metrics.rows} x ${metrics.columns} Raster ausgerichtet`
+        );
+      }
+    }
+
+    function populateShowcase() {
+      const sourceItems = showcaseSourceItems();
+      if (!sourceItems.length) {
+        setStatus('Keine Bilder fuer Showcase ausgewaehlt');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      state.showcase.items = sourceItems.map(item => createShowcaseEntryFromItem(item, metrics));
+      state.showcase.selectedId = null;
+
+      autoArrangeShowcase(false);
+      updateStats();
+      recordHistory();
+      const overflow = state.showcase.items.length > metrics.capacity;
+      setStatus(
+        overflow
+          ? `Showcase gefuellt, aber ${state.showcase.items.length} Bilder ueberschreiten ${metrics.rows} x ${metrics.columns}`
+          : `Showcase mit ${metrics.rows} x ${metrics.columns} gefuellt`
+      );
+    }
+
+    function buildWordShowcase() {
+      const sourceItems = showcaseSourceItems();
+      if (!sourceItems.length) {
+        setStatus('Keine Bilder fuer den Wortbau verfuegbar');
+        return;
+      }
+
+      const tokens = tokenizeWordInput(controls.wordText.value);
+      if (!tokens.some(token => token !== ' ')) {
+        setStatus('Bitte ein Wort fuer den Wortbau eingeben');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const lookup = createLetterLookup(sourceItems);
+      const missing = [];
+      const nextEntries = [];
+
+      tokens.forEach(token => {
+        if (token === ' ') {
+          nextEntries.push(createEmptyShowcaseEntry(metrics));
+          return;
+        }
+
+        const item = lookup.get(token);
+        if (!item) {
+          if (!missing.includes(token)) {
+            missing.push(token);
+          }
+          return;
+        }
+
+        nextEntries.push(createShowcaseEntryFromItem(item, metrics));
+      });
+
+      if (!nextEntries.length) {
+        const missingText = missing.length
+          ? `Fehlende Buchstaben: ${missing.map(token => token.toUpperCase()).join(', ')}`
+          : 'Kein passender Buchstabe gefunden';
+        setStatus(missingText);
+        return;
+      }
+
+      const nextColumns = clamp(nextEntries.length, 1, 8);
+      controls.columns.value = String(nextColumns);
+      controls.rows.value = String(Math.max(1, Math.ceil(nextEntries.length / nextColumns)));
+      state.showcase.items = nextEntries;
+      state.showcase.selectedId = null;
+
+      autoArrangeShowcase(false);
+      updateStats();
+      recordHistory();
+
+      if (missing.length) {
+        setStatus(`Wort gebaut, aber es fehlen: ${missing.map(token => token.toUpperCase()).join(', ')}`);
+        return;
+      }
+
+      setStatus(`Wort mit ${nextEntries.length} Kachel${nextEntries.length === 1 ? '' : 'n'} aufgebaut`);
+    }
+
+    function duplicateActiveLetterTile() {
+      const entry = activeShowcaseEntry();
+      if (!entry || isEmptyShowcaseEntry(entry)) {
+        setStatus('Bitte zuerst eine Buchstaben-Kachel im Showcase auswaehlen');
+        return;
+      }
+
+      const sourceItem = showcaseItemById(entry.sourceId);
+      if (!sourceItem) {
+        setStatus('Die aktive Buchstaben-Kachel konnte nicht gefunden werden');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const duplicate = createShowcaseEntryFromItem(sourceItem, metrics, {
+        scale: entry.scale || 1
+      });
+      const index = state.showcase.items.findIndex(item => item.id === entry.id);
+      state.showcase.items.splice(index + 1, 0, duplicate);
+      state.showcase.selectedId = duplicate.id;
+
+      autoArrangeShowcase(false);
+      recordHistory();
+      setStatus('Aktive Buchstaben-Kachel dupliziert');
+    }
+
+    function renderShowcaseCard(entry, canvas) {
+      canvas.width = Math.max(1, Math.round(entry.width * state.pixelRatio));
+      canvas.height = Math.max(1, Math.round(entry.height * state.pixelRatio));
+
+      if (isEmptyShowcaseEntry(entry)) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#101720';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'rgba(194, 206, 221, 0.42)';
+        ctx.lineWidth = Math.max(2, canvas.width * 0.008);
+        ctx.setLineDash([12, 10]);
+        ctx.strokeRect(ctx.lineWidth, ctx.lineWidth, canvas.width - ctx.lineWidth * 2, canvas.height - ctx.lineWidth * 2);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(194, 206, 221, 0.85)';
+        ctx.font = `${Math.max(18, Math.round(canvas.width * 0.08))}px Segoe UI, Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', canvas.width / 2, canvas.height / 2 - 8);
+        ctx.font = `${Math.max(12, Math.round(canvas.width * 0.032))}px Segoe UI, Arial, sans-serif`;
+        ctx.fillText('Leer', canvas.width / 2, canvas.height / 2 + 28);
+        return;
+      }
+
+      const item = showcaseItemById(entry.sourceId);
+      if (!item) {
+        return;
+      }
+
+      drawPreview(item, canvas, {
+        scale: entry.scale || 1
+      });
+    }
+
+    function renderShowcase() {
+      sanitizeShowcaseItems();
+      showcaseStageInner.innerHTML = '';
+
+      if (!state.showcase.items.length) {
+        showcaseStageInner.appendChild(showcaseEmpty);
+        showcaseEmpty.style.display = 'grid';
+        showcaseStageInner.style.width = '100%';
+        showcaseStageInner.style.height = '560px';
+        updateStats();
+        syncActiveTileControls();
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+  const neededRows = Math.max(metrics.rows, Math.ceil(state.showcase.items.length / metrics.columns));
+  const gridWidth = metrics.boardPadding * 2 + (metrics.columns * metrics.tileWidth) + (Math.max(0, metrics.columns - 1) * metrics.gap);
+  const gridHeight = metrics.boardPadding * 2 + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap) + (neededRows * metrics.labelHeight);
+      let maxRight = 0;
+      let maxBottom = 0;
+
+      state.showcase.items.forEach(entry => {
+        const item = isEmptyShowcaseEntry(entry) ? null : showcaseItemById(entry.sourceId);
+        if (!item && !isEmptyShowcaseEntry(entry)) {
+          return;
+        }
+
+        const card = document.createElement('div');
+        card.className = `showcase-item${isEmptyShowcaseEntry(entry) ? ' is-empty' : ''}${entry.id === state.showcase.selectedId && !isEmptyShowcaseEntry(entry) ? ' selected' : ''}`;
+        card.dataset.showcaseId = entry.id;
+        card.style.left = `${entry.x}px`;
+        card.style.top = `${entry.y}px`;
+        card.style.width = `${entry.width}px`;
+        card.style.height = `${entry.height + metrics.labelHeight}px`;
+
+        const canvas = document.createElement('canvas');
+        canvas.style.height = `${entry.height}px`;
+
+        const label = document.createElement('div');
+        label.className = 'showcase-label';
+  label.textContent = isEmptyShowcaseEntry(entry) ? entry.name : item.name;
+
+        card.appendChild(canvas);
+        card.appendChild(label);
+        showcaseStageInner.appendChild(card);
+
+        renderShowcaseCard(entry, canvas);
+
+        maxRight = Math.max(maxRight, entry.x + entry.width);
+        maxBottom = Math.max(maxBottom, entry.y + entry.height + metrics.labelHeight);
+      });
+
+      showcaseEmpty.style.display = 'none';
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, gridWidth, maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(560, gridHeight, maxBottom + metrics.boardPadding)}px`;
+      updateStats();
+      syncActiveTileControls();
+    }
+
+    function fileExtFromMime(mime) {
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/webp') return 'webp';
+      return 'png';
+    }
+
+    function downloadCanvas(canvas, filenameBase, mime, quality) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL(mime, quality);
+      link.download = `${filenameBase}.${fileExtFromMime(mime)}`;
+      link.click();
+    }
+
+    function exportShowcasePng() {
+      sanitizeShowcaseItems();
+      if (!state.showcase.items.length) {
+        setStatus('Keine Bilder im Showcase zum Exportieren');
+        return;
+      }
+
+      const metrics = getShowcaseMetrics();
+      const neededRows = Math.max(metrics.rows, Math.ceil(state.showcase.items.length / metrics.columns));
+      const gridRight = metrics.boardPadding + (metrics.columns * metrics.tileWidth) + (Math.max(0, metrics.columns - 1) * metrics.gap);
+      const gridBottom = metrics.boardPadding + (neededRows * metrics.tileHeight) + (Math.max(0, neededRows - 1) * metrics.gap);
+      const bounds = state.showcase.items.reduce((acc, entry) => {
+        acc.right = Math.max(acc.right, entry.x + entry.width);
+        acc.bottom = Math.max(acc.bottom, entry.y + entry.height);
+        return acc;
+      }, { right: gridRight, bottom: gridBottom });
+
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(bounds.right + metrics.boardPadding));
+      out.height = Math.max(1, Math.round(bounds.bottom + metrics.boardPadding));
+
+      const ctx = out.getContext('2d');
+      if (controls.bg.value === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, out.width, out.height);
+      } else if (controls.bg.value === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, out.width, out.height);
+      }
+
+      state.showcase.items.forEach(entry => {
+        if (isEmptyShowcaseEntry(entry)) {
+          return;
+        }
+
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) {
+          return;
+        }
+
+        const tile = document.createElement('canvas');
+        tile.width = entry.width;
+        tile.height = entry.height;
+        drawPreview(item, tile, {
+          background: null,
+          scale: entry.scale || 1
+        });
+        ctx.drawImage(tile, entry.x, entry.y, entry.width, entry.height);
+      });
+
+      downloadCanvas(out, 'showcase-layout', 'image/png', 1);
+      setStatus(`Showcase als PNG exportiert (${state.showcase.items.length} Bilder)`);
+    }
+
+    function addEmptyTiles() {
+      const count = clamp(Number(controls.emptyCount.value) || 1, 1, 24);
+      const metrics = getShowcaseMetrics();
+      const startIndex = state.showcase.items.length;
+      for (let index = 0; index < count; index += 1) {
+        const entry = createEmptyShowcaseEntry(metrics);
+        const slot = getGridSlotPosition(startIndex + index, metrics);
+        entry.x = slot.x;
+        entry.y = slot.y;
+        state.showcase.items.push(entry);
+      }
+
+      renderShowcase();
+      updateStats();
+      recordHistory();
+      setStatus(`${count} leere Kachel${count === 1 ? '' : 'n'} hinzugefuegt`);
+    }
+
+    function normalizeSubjectSizes() {
+      sanitizeShowcaseItems();
+
+      const candidates = state.showcase.items.map(entry => {
+        if (isEmptyShowcaseEntry(entry)) {
+          return null;
+        }
+
+        const item = showcaseItemById(entry.sourceId);
+        if (!item) {
+          return null;
+        }
+
+        const bounds = getVisibleBounds(item.img);
+        const basePlacement = getContainedPlacement(item.img, entry.width, entry.height, 1);
+        const visibleHeight = Math.min(entry.height * 0.96, basePlacement.height * (entry.scale || 1) * (bounds?.heightRatio || 1));
+        return {
+          entry,
+          bounds,
+          baseHeight: basePlacement.height,
+          visibleHeight
+        };
+      }).filter(Boolean);
+
+      if (!candidates.length) {
+        setStatus('Keine Bilder zum Angleichen im Showcase');
+        return;
+      }
+
+      const sortedHeights = candidates.map(candidate => candidate.visibleHeight).sort((a, b) => a - b);
+      const targetHeight = sortedHeights[Math.floor(sortedHeights.length / 2)];
+      let adjusted = 0;
+
+      candidates.forEach(candidate => {
+        const ratio = candidate.bounds?.heightRatio || 1;
+        const nextScale = clamp(targetHeight / Math.max(1, candidate.baseHeight * ratio), 0.4, 2.6);
+        if (!Number.isFinite(nextScale)) {
+          return;
+        }
+
+        candidate.entry.scale = nextScale;
+        adjusted += 1;
+      });
+
+      renderShowcase();
+      recordHistory();
+      setStatus(`${adjusted} Motivgroessen angeglichen`);
+    }
+
+    function clearSwapTarget() {
+      if (!state.showcase.dragging?.swapTargetId) {
+        return;
+      }
+
+      const previousTarget = showcaseStageInner.querySelector(`[data-showcase-id="${state.showcase.dragging.swapTargetId}"]`);
+      previousTarget?.classList.remove('swap-target');
+      state.showcase.dragging.swapTargetId = null;
+    }
+
+    function findSwapTarget(draggingEntry) {
+      const centerX = draggingEntry.x + draggingEntry.width / 2;
+      const centerY = draggingEntry.y + draggingEntry.height / 2;
+
+      return state.showcase.items.find(entry => {
+        if (entry.id === draggingEntry.id) {
+          return false;
+        }
+
+        return centerX >= entry.x
+          && centerX <= entry.x + entry.width
+          && centerY >= entry.y
+          && centerY <= entry.y + entry.height;
+      }) || null;
+    }
+
+    function updateSwapTarget(draggingEntry) {
+      const nextTarget = findSwapTarget(draggingEntry);
+      const nextTargetId = nextTarget?.id || null;
+
+      if (state.showcase.dragging?.swapTargetId === nextTargetId) {
+        return nextTarget;
+      }
+
+      clearSwapTarget();
+      if (nextTargetId) {
+        const targetCard = showcaseStageInner.querySelector(`[data-showcase-id="${nextTargetId}"]`);
+        targetCard?.classList.add('swap-target');
+        state.showcase.dragging.swapTargetId = nextTargetId;
+      }
+
+      return nextTarget;
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = true;
+      });
+      renderThumbs();
+      recordHistory();
+      setStatus('Alle Bilder markiert');
+    });
+
+    selectNoneBtn.addEventListener('click', () => {
+      state.items.forEach(item => {
+        item.selected = false;
+      });
+      renderThumbs();
+      recordHistory();
+      setStatus('Keine Bilder markiert');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      state.items = [];
+      state.showcase.items = [];
+      state.showcase.selectedId = null;
+      filesInput.value = '';
+      renderThumbs();
+      renderShowcase();
+      recordHistory();
+      setStatus('Alle Bilder entfernt');
+    });
+
+    filesInput.addEventListener('change', async event => {
+      try {
+        await loadFiles(event.target.files);
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Bilder konnten nicht geladen werden');
+      }
+    });
+
+    [controls.gap, controls.tileWidth].forEach(control => {
+      control.addEventListener('input', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(false);
+        }
+      });
+      control.addEventListener('change', () => {
+        updateLabels();
+        if (state.showcase.items.length) {
+          autoArrangeShowcase(false);
+        }
+        recordHistory();
+      });
+    });
+
+    [controls.columns, controls.rows].forEach(control => control.addEventListener('change', () => {
+      if (state.showcase.items.length) {
+        autoArrangeShowcase(true);
+      }
+      recordHistory();
+    }));
+
+    [controls.source, controls.bg, controls.emptyCount, controls.wordText].forEach(control => {
+      control.addEventListener('change', recordHistory);
+    });
+
+    controls.imageScale.addEventListener('input', () => {
+      const entry = activeShowcaseEntry();
+      if (!entry) {
+        syncActiveTileControls();
+        return;
+      }
+
+      entry.scale = clamp(Number(controls.imageScale.value) / 100, 0.4, 2.6);
+      labels.imageScale.textContent = `${controls.imageScale.value} %`;
+      renderShowcase();
+    });
+
+    controls.imageScale.addEventListener('change', () => {
+      const entry = activeShowcaseEntry();
+      if (!entry) {
+        return;
+      }
+
+      entry.scale = clamp(Number(controls.imageScale.value) / 100, 0.4, 2.6);
+      renderShowcase();
+      recordHistory();
+      setStatus('Bildgroesse angepasst');
+    });
+
+    showcasePopulateBtn.addEventListener('click', populateShowcase);
+    showcaseArrangeBtn.addEventListener('click', () => {
+      autoArrangeShowcase(true);
+      recordHistory();
+    });
+    showcaseExportBtn.addEventListener('click', exportShowcasePng);
+    showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
+    showcaseAutoSizeBtn.addEventListener('click', normalizeSubjectSizes);
+    wordBuildBtn.addEventListener('click', buildWordShowcase);
+    duplicateLetterBtn.addEventListener('click', duplicateActiveLetterTile);
+    undoBtn.addEventListener('click', undoHistory);
+    redoBtn.addEventListener('click', redoHistory);
+    openMobileControlsBtn?.addEventListener('click', () => setMobileControlsOpen(true));
+    closeMobileControlsBtn?.addEventListener('click', () => setMobileControlsOpen(false));
+    mobileBackdrop?.addEventListener('click', () => setMobileControlsOpen(false));
+
+    controls.wordText.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      event.preventDefault();
+      buildWordShowcase();
+    });
+
+    showcaseStage.addEventListener('pointerdown', event => {
+      const card = event.target.closest('.showcase-item');
+      if (!card) {
+        return;
+      }
+
+      const entry = state.showcase.items.find(item => item.id === card.dataset.showcaseId);
+      if (!entry) {
+        return;
+      }
+
+      showcaseStageInner.querySelector('.showcase-item.selected')?.classList.remove('selected');
+      state.showcase.selectedId = isEmptyShowcaseEntry(entry) ? null : entry.id;
+      if (state.showcase.selectedId) {
+        card.classList.add('selected');
+      }
+      syncActiveTileControls();
+
+      event.preventDefault();
+      state.showcase.dragging = {
+        id: entry.id,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: entry.x,
+        top: entry.y,
+        card,
+        swapTargetId: null
+      };
+
+      card.classList.add('dragging');
+      card.setPointerCapture(event.pointerId);
+    });
+
+    showcaseStage.addEventListener('pointermove', event => {
+      if (!state.showcase.dragging) {
+        return;
+      }
+
+      const dragging = state.showcase.dragging;
+      const entry = state.showcase.items.find(item => item.id === dragging.id);
+      if (!entry) {
+        return;
+      }
+
+      entry.x = Math.max(0, dragging.left + (event.clientX - dragging.startX));
+      entry.y = Math.max(0, dragging.top + (event.clientY - dragging.startY));
+      dragging.card.style.left = `${entry.x}px`;
+      dragging.card.style.top = `${entry.y}px`;
+      updateSwapTarget(entry);
+
+      const metrics = getShowcaseMetrics();
+      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.width + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(560, entry.y + entry.height + metrics.labelHeight + metrics.boardPadding)}px`;
+    });
+
+    function endShowcaseDrag(event) {
+      if (!state.showcase.dragging) {
+        return;
+      }
+
+      const dragging = state.showcase.dragging;
+      const draggedEntry = state.showcase.items.find(item => item.id === dragging.id);
+      const targetEntry = dragging.swapTargetId
+        ? state.showcase.items.find(item => item.id === dragging.swapTargetId)
+        : null;
+
+      if (draggedEntry && targetEntry) {
+        const originalX = dragging.left;
+        const originalY = dragging.top;
+        draggedEntry.x = targetEntry.x;
+        draggedEntry.y = targetEntry.y;
+        targetEntry.x = originalX;
+        targetEntry.y = originalY;
+        renderShowcase();
+        recordHistory();
+        setStatus('Positionen getauscht');
+      }
+
+      clearSwapTarget();
+
+      try {
+        dragging.card.releasePointerCapture(event.pointerId);
+      } catch (error) {}
+
+      dragging.card.classList.remove('dragging');
+      state.showcase.dragging = null;
+      recordHistory();
+    }
+
+    showcaseStage.addEventListener('pointerup', endShowcaseDrag);
+    showcaseStage.addEventListener('pointercancel', endShowcaseDrag);
+
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        setMobileControlsOpen(false);
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !/input|textarea|select/i.test(event.target?.tagName || '')) {
+        const key = event.key.toLowerCase();
+        if (key === 'z' && !event.shiftKey) {
+          event.preventDefault();
+          undoHistory();
+          return;
+        }
+        if (key === 'y' || (key === 'z' && event.shiftKey)) {
+          event.preventDefault();
+          redoHistory();
+          return;
+        }
+      }
+      if (event.key.toLowerCase() !== 'r') {
+        return;
+      }
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) {
+        return;
+      }
+
+      event.preventDefault();
+      autoArrangeShowcase(true);
+    });
+
+    window.addEventListener('resize', () => {
+      if (!isCompactLayout()) {
+        setMobileControlsOpen(false);
+      }
+      if (state.showcase.items.length) {
+        renderShowcase();
+      }
+    });
+
+    updateLabels();
+    syncMobileControlsUi();
+    renderThumbs();
+    renderShowcase();
+    recordHistory();
+  </script>
+</body>
+</html>
