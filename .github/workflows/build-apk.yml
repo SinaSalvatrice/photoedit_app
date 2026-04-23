@@ -47,3 +47,11 @@ jobs:
           name: FusionPhotoedit
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+- name: Upload Gradle problems report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-problems-report
+          path: build/reports/problems/problems-report.html
+          if-no-files-found: ignore
