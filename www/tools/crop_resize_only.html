@@ -1102,7 +1102,7 @@
 
     function endDrag(event) {
       if (state.frameDrag) {
-        try { previewCanvas.releasePointerCapture(event.pointerId); } catch (_) {}
+        try { previewCanvas.releasePointerCapture(event.pointerId); } catch (_) { /* safe: pointer may not be captured */ }
         state.frameDrag = null;
         recordHistory();
         return;
@@ -1110,7 +1110,7 @@
       if (!state.dragging) return;
       try {
         previewCanvas.releasePointerCapture(event.pointerId);
-      } catch (_) {}
+      } catch (_) { /* safe: pointer may not be captured */ }
       previewCanvas.classList.remove('dragging');
       state.dragging = null;
       recordHistory();
