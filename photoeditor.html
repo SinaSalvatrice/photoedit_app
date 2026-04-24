@@ -323,7 +323,7 @@
   <main class="workspace">
     <header class="topbar">
       <div class="active-title">
-        <h2 id="activeName">PhotoEdit Fusion</h2>
+        <h2 id="activeName">Batch Editing</h2>
         <p id="activeMeta">Bereit</p>
       </div>
       <div id="statusText" class="status">Geladen</div>
@@ -340,23 +340,16 @@
     const toolBase = isRootEditorFile ? 'standalone%20tools/' : 'tools/';
     const tools = [
       {
-        id: 'fusion',
-        icon: 'PE',
-        name: 'PhotoEdit Fusion',
-        meta: 'Kompletter Batch Editor',
-        file: 'photoeditor_full.html'
-      },
-      {
         id: 'editor',
         icon: 'ED',
-        name: 'Batch Editor',
+        name: 'Batch Editing',
         meta: 'Anpassen, packen, exportieren',
         file: 'editor_only.html'
       },
       {
         id: 'showcase',
         icon: 'SC',
-        name: 'Showcase',
+        name: 'Showcasing',
         meta: 'Raster, Kacheln, PNG Export',
         file: 'showcase_only.html'
       },
