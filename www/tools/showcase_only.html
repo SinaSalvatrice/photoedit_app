@@ -608,6 +608,11 @@
             <button id="showcaseAddEmptyBtn" class="secondary">Leere Kachel hinzufuegen</button>
           </div>
 
+          <div class="button-row">
+            <button id="showcaseSaveDraftBtn" class="secondary">Zwischenspeicher sichern</button>
+            <button id="showcaseLoadDraftBtn" class="secondary">Zwischenspeicher laden</button>
+          </div>
+
           <div class="row">
             <div class="value-row"><label for="showcaseImageScale">Aktive Bildgroesse</label><span id="showcaseImageScaleVal">-</span></div>
             <input id="showcaseImageScale" type="range" min="40" max="260" value="100" disabled />
@@ -724,6 +729,8 @@
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
     const showcaseAddEmptyBtn = document.getElementById('showcaseAddEmptyBtn');
+    const showcaseSaveDraftBtn = document.getElementById('showcaseSaveDraftBtn');
+    const showcaseLoadDraftBtn = document.getElementById('showcaseLoadDraftBtn');
     const showcaseAutoSizeBtn = document.getElementById('showcaseAutoSizeBtn');
     const wordBuildBtn = document.getElementById('wordBuildBtn');
     const duplicateLetterBtn = document.getElementById('duplicateLetterBtn');
@@ -759,6 +766,7 @@
     };
     const imageCache = new Map();
     const subjectBoundsCache = new Map();
+    const SHOWCASE_DRAFT_KEY = 'photoedit.showcase.draft.v1';
 
     function setStatus(text) {
       statusText.textContent = text;
@@ -852,12 +860,50 @@
       redoBtn.disabled = historyState.future.length < 1;
     }
 
+    function persistDraft(snapshot = createSnapshot()) {
+      try {
+        localStorage.setItem(SHOWCASE_DRAFT_KEY, JSON.stringify(snapshot));
+      } catch (error) {
+        console.warn('Zwischenspeicher konnte nicht gespeichert werden:', error);
+      }
+    }
+
+    function loadDraftSnapshot() {
+      try {
+        const raw = localStorage.getItem(SHOWCASE_DRAFT_KEY);
+        if (!raw) {
+          return null;
+        }
+        const snapshot = JSON.parse(raw);
+        return snapshot && typeof snapshot === 'object' ? snapshot : null;
+      } catch (error) {
+        console.warn('Zwischenspeicher konnte nicht gelesen werden:', error);
+        return null;
+      }
+    }
+
+    function restoreDraft(snapshot, message = 'Zwischenspeicher geladen') {
+      if (!snapshot) {
+        setStatus('Kein Zwischenspeicher gefunden');
+        return false;
+      }
+
+      applySnapshot(snapshot);
+      historyState.past = [snapshot];
+      historyState.future = [];
+      historyState.lastKey = JSON.stringify(snapshot);
+      syncHistoryButtons();
+      setStatus(message);
+      return true;
+    }
+
     function recordHistory() {
       if (historyState.restoring) return;
       const snapshot = createSnapshot();
       const key = JSON.stringify(snapshot);
       if (key === historyState.lastKey) {
         syncHistoryButtons();
+        persistDraft(snapshot);
         return;
       }
       historyState.past.push(snapshot);
@@ -867,6 +913,7 @@
       historyState.future = [];
       historyState.lastKey = key;
       syncHistoryButtons();
+      persistDraft(snapshot);
     }
 
     function undoHistory() {
@@ -1416,7 +1463,7 @@
         showcaseStageInner.appendChild(showcaseEmpty);
         showcaseEmpty.style.display = 'grid';
         showcaseStageInner.style.width = '100%';
-        showcaseStageInner.style.height = '560px';
+        showcaseStageInner.style.height = '340px';
         updateStats();
         syncActiveTileControls();
         return;
@@ -1461,8 +1508,8 @@
       });
 
       showcaseEmpty.style.display = 'none';
-      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, gridWidth, maxRight + metrics.boardPadding)}px`;
-      showcaseStageInner.style.height = `${Math.max(560, gridHeight, maxBottom + metrics.boardPadding)}px`;
+      showcaseStageInner.style.width = `${Math.max(gridWidth, maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(320, gridHeight, maxBottom + metrics.boardPadding)}px`;
       updateStats();
       syncActiveTileControls();
     }
@@ -1741,6 +1788,13 @@
     });
     showcaseExportBtn.addEventListener('click', exportShowcasePng);
     showcaseAddEmptyBtn.addEventListener('click', addEmptyTiles);
+    showcaseSaveDraftBtn.addEventListener('click', () => {
+      persistDraft();
+      setStatus('Zwischenspeicher gesichert');
+    });
+    showcaseLoadDraftBtn.addEventListener('click', () => {
+      restoreDraft(loadDraftSnapshot());
+    });
     showcaseAutoSizeBtn.addEventListener('click', normalizeSubjectSizes);
     wordBuildBtn.addEventListener('click', buildWordShowcase);
     duplicateLetterBtn.addEventListener('click', duplicateActiveLetterTile);
@@ -1810,8 +1864,8 @@
       updateSwapTarget(entry);
 
       const metrics = getShowcaseMetrics();
-      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.width + metrics.boardPadding)}px`;
-      showcaseStageInner.style.height = `${Math.max(560, entry.y + entry.height + metrics.labelHeight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.width = `${Math.max(entry.x + entry.width + metrics.boardPadding, metrics.boardPadding * 2 + metrics.tileWidth)}px`;
+      showcaseStageInner.style.height = `${Math.max(320, entry.y + entry.height + metrics.labelHeight + metrics.boardPadding)}px`;
     });
 
     function endShowcaseDrag(event) {
@@ -1893,7 +1947,9 @@
     syncMobileControlsUi();
     renderThumbs();
     renderShowcase();
-    recordHistory();
+    if (!restoreDraft(loadDraftSnapshot(), 'Zwischenspeicher wiederhergestellt')) {
+      recordHistory();
+    }
   </script>
 </body>
 </html>
