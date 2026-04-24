@@ -751,8 +751,6 @@
         <div class="button-row">
           <button id="downloadSelectedBtn">Markierte exportieren</button>
           <button id="downloadAllBtn" class="secondary">Alle exportieren</button>
-          <button id="splitSelectedBtn" class="secondary">Markierte in 4 Teile</button>
-          <button id="splitAllBtn" class="secondary">Alle in 4 Teile</button>
         </div>
         <div class="hint">
           Die Vorschau ist direkt eingebaut. „In 4 Teile“ zerlegt das bearbeitete Exportbild in:
@@ -923,8 +921,6 @@
     const enhanceBtn = document.getElementById('enhanceBtn');
     const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
-    const splitSelectedBtn = document.getElementById('splitSelectedBtn');
-    const splitAllBtn = document.getElementById('splitAllBtn');
     const showcasePopulateBtn = document.getElementById('showcasePopulateBtn');
     const showcaseArrangeBtn = document.getElementById('showcaseArrangeBtn');
     const showcaseExportBtn = document.getElementById('showcaseExportBtn');
@@ -2054,7 +2050,6 @@
               <button class="secondary" data-action="enhance">Enhance</button>
               <button class="secondary" data-action="restore-original">Original</button>
               <button class="secondary" data-action="export">Export</button>
-              <button class="secondary" data-action="split">4 Teile</button>
             </div>
           </div>
         `;
@@ -2173,7 +2168,7 @@
         showcaseStageInner.appendChild(showcaseEmpty);
         showcaseEmpty.style.display = 'grid';
         showcaseStageInner.style.width = '100%';
-        showcaseStageInner.style.height = '520px';
+        showcaseStageInner.style.height = '320px';
         return;
       }
 
@@ -2209,8 +2204,8 @@
       });
 
       showcaseEmpty.style.display = 'none';
-      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, maxRight + metrics.boardPadding)}px`;
-      showcaseStageInner.style.height = `${Math.max(520, maxBottom + metrics.boardPadding)}px`;
+      showcaseStageInner.style.width = `${Math.max((metrics.columns * metrics.size) + (Math.max(0, metrics.columns - 1) * metrics.gap) + (metrics.boardPadding * 2), maxRight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.height = `${Math.max(320, maxBottom + metrics.boardPadding)}px`;
     }
 
     function exportShowcasePng() {
@@ -2765,8 +2760,6 @@
     restoreOriginalBtn.addEventListener('click', () => restoreOriginalForItems(targetItems()));
     downloadSelectedBtn.addEventListener('click', () => exportItems(selectedItems()));
     downloadAllBtn.addEventListener('click', () => exportItems(state.items));
-    splitSelectedBtn.addEventListener('click', () => splitItemsIntoFour(selectedItems()));
-    splitAllBtn.addEventListener('click', () => splitItemsIntoFour(state.items));
     showcasePopulateBtn.addEventListener('click', () => {
       populateShowcase();
       recordHistory();
@@ -2841,11 +2834,6 @@
       if (action === 'export') {
         exportItem(item);
         setStatus(`Exportiert: ${item.name}`);
-      }
-
-      if (action === 'split') {
-        splitItemIntoFour(item);
-        setStatus(`In 4 Teile zerlegt: ${item.name}`);
       }
     });
 
@@ -3014,8 +3002,8 @@
       dragging.card.style.top = `${entry.y}px`;
 
       const metrics = getShowcaseMetrics();
-      showcaseStageInner.style.width = `${Math.max(showcaseStage.clientWidth, entry.x + entry.size + metrics.boardPadding)}px`;
-      showcaseStageInner.style.height = `${Math.max(520, entry.y + entry.size + metrics.labelHeight + metrics.boardPadding)}px`;
+      showcaseStageInner.style.width = `${Math.max(entry.x + entry.size + metrics.boardPadding, metrics.boardPadding * 2 + metrics.size)}px`;
+      showcaseStageInner.style.height = `${Math.max(320, entry.y + entry.size + metrics.labelHeight + metrics.boardPadding)}px`;
     });
 
     function endShowcaseDrag(evt) {
