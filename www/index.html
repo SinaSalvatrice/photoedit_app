@@ -323,7 +323,7 @@
   <main class="workspace">
     <header class="topbar">
       <div class="active-title">
-        <h2 id="activeName">PhotoEdit Fusion</h2>
+        <h2 id="activeName">Batch Editor</h2>
         <p id="activeMeta">Bereit</p>
       </div>
       <div id="statusText" class="status">Geladen</div>
@@ -339,13 +339,6 @@
     const isRootEditorFile = /photoeditor\.html$/i.test(location.pathname);
     const toolBase = isRootEditorFile ? 'standalone%20tools/' : 'tools/';
     const tools = [
-      {
-        id: 'fusion',
-        icon: 'PE',
-        name: 'PhotoEdit Fusion',
-        meta: 'Kompletter Batch Editor',
-        file: 'photoeditor_full.html'
-      },
       {
         id: 'editor',
         icon: 'ED',
@@ -485,8 +478,10 @@
     });
 
     const storedTool = localStorage.getItem('photoedit.activeTool');
+    // If storedTool was the removed fusion tab, fall back to editor
+    const validTool = tools.find(t => t.id === storedTool) ? storedTool : tools[0].id;
     renderTools();
-    activateTool(storedTool || tools[0].id);
+    activateTool(validTool);
   </script>
 </body>
 </html>
