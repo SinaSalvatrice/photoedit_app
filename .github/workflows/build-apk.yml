@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FusionPhotoedit
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/FusionPE.apk
           if-no-files-found: error
 
       - name: Upload Gradle problems report
