@@ -372,9 +372,10 @@
           <div class="button-row">
             <button id="exportCurrentBtn">Aktuelles Bild exportieren</button>
             <button id="exportAllBtn" class="secondary">Alle exportieren</button>
+            <button id="resetFrameBtn" class="secondary">Rahmen zurücksetzen</button>
           </div>
 
-          <div class="hint">Mit gedrueckter Maus ziehst du das Bild im Crop-Rahmen. Mit dem Mausrad oder dem Zoom-Regler vergroesserst oder verkleinerst du den Ausschnitt.</div>
+          <div class="hint">Mit gedrueckter Maus ziehst du das Bild im Crop-Rahmen. Mit dem Mausrad oder dem Zoom-Regler vergroesserst oder verkleinerst du den Ausschnitt. Den orangen Rahmen selbst kannst du an den <strong>Kanten ziehen</strong> (verschieben) oder an den <strong>Ecken ziehen</strong> (skalieren).</div>
         </div>
       </div>
 
@@ -432,6 +433,7 @@
     const clearBtn = document.getElementById('clearBtn');
     const exportCurrentBtn = document.getElementById('exportCurrentBtn');
     const exportAllBtn = document.getElementById('exportAllBtn');
+    const resetFrameBtn = document.getElementById('resetFrameBtn');
     const previewCanvas = document.getElementById('previewCanvas');
     const previewShell = document.getElementById('previewShell');
     const emptyState = document.getElementById('emptyState');
@@ -456,6 +458,8 @@
       items: [],
       activeId: null,
       dragging: null,
+      frameDrag: null,
+      frame: { offsetX: 0, offsetY: 0, userScale: 1.0 },
       pixelRatio: Math.max(1, Math.min(2, window.devicePixelRatio || 1))
     };
     const historyState = {
@@ -512,7 +516,10 @@
         outputHeight: controls.outputHeight.value,
         aspectRatio: controls.aspectRatio.value,
         fitMode: controls.fitMode.value,
-        bgFill: controls.bgFill.value
+        bgFill: controls.bgFill.value,
+        frameOffsetX: state.frame.offsetX,
+        frameOffsetY: state.frame.offsetY,
+        frameUserScale: state.frame.userScale
       };
     }
 
@@ -522,6 +529,9 @@
       controls.aspectRatio.value = snapshot.aspectRatio;
       controls.fitMode.value = snapshot.fitMode;
       controls.bgFill.value = snapshot.bgFill;
+      state.frame.offsetX = snapshot.frameOffsetX ?? 0;
+      state.frame.offsetY = snapshot.frameOffsetY ?? 0;
+      state.frame.userScale = snapshot.frameUserScale ?? 1.0;
     }
 
     function createSnapshot() {
@@ -657,12 +667,12 @@
       const ratio = ratioParts();
       const maxWidth = canvasWidth * 0.82;
       const maxHeight = canvasHeight * 0.82;
-      const scale = Math.min(maxWidth / ratio.w, maxHeight / ratio.h);
-      const width = ratio.w * scale;
-      const height = ratio.h * scale;
+      const naturalScale = Math.min(maxWidth / ratio.w, maxHeight / ratio.h);
+      const width = clamp(ratio.w * naturalScale * state.frame.userScale, 40, canvasWidth * 2);
+      const height = clamp(ratio.h * naturalScale * state.frame.userScale, 40, canvasHeight * 2);
       return {
-        x: (canvasWidth - width) / 2,
-        y: (canvasHeight - height) / 2,
+        x: (canvasWidth - width) / 2 + state.frame.offsetX,
+        y: (canvasHeight - height) / 2 + state.frame.offsetY,
         width,
         height
       };
@@ -678,6 +688,42 @@
       const x = frame.x + (frame.width - drawW) / 2 + item.panX;
       const y = frame.y + (frame.height - drawH) / 2 + item.panY;
       return { x, y, drawW, drawH, scale };
+    }
+
+    const FRAME_HANDLE_HIT = 14;
+    const FRAME_BORDER_HIT = 8;
+
+    function getFrameHit(point, frame) {
+      const corners = [
+        { id: 'nw', x: frame.x, y: frame.y },
+        { id: 'ne', x: frame.x + frame.width, y: frame.y },
+        { id: 'sw', x: frame.x, y: frame.y + frame.height },
+        { id: 'se', x: frame.x + frame.width, y: frame.y + frame.height }
+      ];
+      for (const c of corners) {
+        if (Math.hypot(point.x - c.x, point.y - c.y) <= FRAME_HANDLE_HIT) {
+          return { mode: 'resize', corner: c.id };
+        }
+      }
+      const B = FRAME_BORDER_HIT;
+      const inX = point.x >= frame.x - B && point.x <= frame.x + frame.width + B;
+      const inY = point.y >= frame.y - B && point.y <= frame.y + frame.height + B;
+      const nearLeft = Math.abs(point.x - frame.x) <= B;
+      const nearRight = Math.abs(point.x - (frame.x + frame.width)) <= B;
+      const nearTop = Math.abs(point.y - frame.y) <= B;
+      const nearBottom = Math.abs(point.y - (frame.y + frame.height)) <= B;
+      if ((nearLeft || nearRight) && inY) return { mode: 'move-frame' };
+      if ((nearTop || nearBottom) && inX) return { mode: 'move-frame' };
+      return { mode: 'image' };
+    }
+
+    function frameDragCursor(hit) {
+      if (!hit) return 'grab';
+      if (hit.mode === 'resize') {
+        return (hit.corner === 'nw' || hit.corner === 'se') ? 'nwse-resize' : 'nesw-resize';
+      }
+      if (hit.mode === 'move-frame') return 'move';
+      return 'grab';
     }
 
     function drawPreview() {
@@ -740,6 +786,24 @@
       ctx.lineTo(frame.x + frame.width, frame.y + frame.height * 2 / 3);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Draw corner handles
+      const handleR = Math.max(5, ratio * 5);
+      const handleCorners = [
+        { x: frame.x, y: frame.y },
+        { x: frame.x + frame.width, y: frame.y },
+        { x: frame.x, y: frame.y + frame.height },
+        { x: frame.x + frame.width, y: frame.y + frame.height }
+      ];
+      ctx.fillStyle = '#d96c38';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(1.5, ratio);
+      for (const c of handleCorners) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, handleR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
 
       updateDetailPanel();
     }
@@ -818,25 +882,44 @@
     }
 
     function buildExportCanvas(item) {
-      const width = clamp(Number(controls.outputWidth.value) || 1, 1, 12000);
-      const height = clamp(Number(controls.outputHeight.value) || 1, 1, 12000);
+      const outputW = clamp(Number(controls.outputWidth.value) || 1, 1, 12000);
+      const outputH = clamp(Number(controls.outputHeight.value) || 1, 1, 12000);
       const out = document.createElement('canvas');
-      out.width = width;
-      out.height = height;
+      out.width = outputW;
+      out.height = outputH;
       const ctx = out.getContext('2d');
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
       if (controls.bgFill.value === 'white') {
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, outputW, outputH);
       } else if (controls.bgFill.value === 'black') {
         ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, outputW, outputH);
       }
 
-      const frame = { x: 0, y: 0, width, height };
-      const placement = getPlacement(item, frame);
+      // Account for frame offset and scale when exporting.
+      // Frame offsetX/Y in preview pixels must be translated to export pixels.
+      // We use the preview canvas dimensions to compute the natural frame width.
+      const previewW = previewCanvas.width || previewCanvas.clientWidth * state.pixelRatio || 600;
+      const previewH = previewCanvas.height || previewCanvas.clientHeight * state.pixelRatio || 600;
+      const previewFrame = getFrameRect(previewW, previewH);
+
+      // Ratio between export frame and preview frame dimensions
+      const exportToPreviewX = outputW / previewFrame.width;
+      const exportToPreviewY = outputH / previewFrame.height;
+
+      // Frame offset shifts the crop window: offsetX moves frame right → crop shifts right → image appears to move left
+      const effectivePanX = item.panX - state.frame.offsetX * exportToPreviewX;
+      const effectivePanY = item.panY - state.frame.offsetY * exportToPreviewY;
+
+      // Frame userScale > 1 means a larger frame → more of image visible → lower effective zoom
+      const effectiveZoom = item.zoom / state.frame.userScale;
+
+      const effectiveItem = { ...item, panX: effectivePanX, panY: effectivePanY, zoom: effectiveZoom };
+      const frame = { x: 0, y: 0, width: outputW, height: outputH };
+      const placement = getPlacement(effectiveItem, frame);
       ctx.drawImage(item.img, placement.x, placement.y, placement.drawW, placement.drawH);
       return out;
     }
@@ -883,7 +966,7 @@
       setActive(thumb.dataset.id);
     });
 
-    [controls.outputWidth, controls.outputHeight, controls.aspectRatio, controls.fitMode, controls.bgFill].forEach(control => {
+    [controls.outputWidth, controls.outputHeight, controls.fitMode, controls.bgFill].forEach(control => {
       control.addEventListener('change', () => {
         drawPreview();
         recordHistory();
@@ -910,38 +993,124 @@
     clearBtn.addEventListener('click', clearAll);
     exportCurrentBtn.addEventListener('click', exportCurrent);
     exportAllBtn.addEventListener('click', exportAll);
+    resetFrameBtn.addEventListener('click', () => {
+      state.frame.offsetX = 0;
+      state.frame.offsetY = 0;
+      state.frame.userScale = 1.0;
+      drawPreview();
+      recordHistory();
+      setStatus('Rahmen zurückgesetzt');
+    });
+
+    // Reset frame position when aspect ratio changes to avoid off-screen frames
+    controls.aspectRatio.addEventListener('change', () => {
+      state.frame.offsetX = 0;
+      state.frame.offsetY = 0;
+      state.frame.userScale = 1.0;
+      drawPreview();
+      recordHistory();
+    });
 
     previewCanvas.addEventListener('pointerdown', event => {
       const item = activeItem();
       if (!item) return;
       event.preventDefault();
       const point = getCanvasPoint(event);
-      state.dragging = {
-        id: item.id,
-        startX: point.x,
-        startY: point.y,
-        panX: item.panX,
-        panY: item.panY
-      };
+      const frame = getFrameRect(previewCanvas.width, previewCanvas.height);
+      const hit = getFrameHit(point, frame);
       previewCanvas.setPointerCapture(event.pointerId);
-      previewCanvas.classList.add('dragging');
+
+      if (hit.mode === 'resize') {
+        const cx = frame.x + frame.width / 2;
+        const cy = frame.y + frame.height / 2;
+        state.frameDrag = {
+          mode: 'resize',
+          startDist: Math.max(1, Math.hypot(point.x - cx, point.y - cy)),
+          centerX: cx,
+          centerY: cy,
+          startUserScale: state.frame.userScale,
+          startZoom: item.zoom,
+          itemId: item.id
+        };
+      } else if (hit.mode === 'move-frame') {
+        state.frameDrag = {
+          mode: 'move',
+          startX: point.x,
+          startY: point.y,
+          startOffsetX: state.frame.offsetX,
+          startOffsetY: state.frame.offsetY,
+          startPanX: item.panX,
+          startPanY: item.panY,
+          itemId: item.id
+        };
+      } else {
+        state.dragging = {
+          id: item.id,
+          startX: point.x,
+          startY: point.y,
+          panX: item.panX,
+          panY: item.panY
+        };
+        previewCanvas.classList.add('dragging');
+      }
     });
 
     previewCanvas.addEventListener('pointermove', event => {
-      if (!state.dragging) return;
-      const item = activeItem();
-      if (!item || item.id !== state.dragging.id) return;
       const point = getCanvasPoint(event);
-      item.panX = state.dragging.panX + (point.x - state.dragging.startX);
-      item.panY = state.dragging.panY + (point.y - state.dragging.startY);
-      drawPreview();
+      const item = activeItem();
+
+      if (state.frameDrag) {
+        if (!item || item.id !== state.frameDrag.itemId) return;
+        const fd = state.frameDrag;
+
+        if (fd.mode === 'resize') {
+          const newDist = Math.max(1, Math.hypot(point.x - fd.centerX, point.y - fd.centerY));
+          const scaleFactor = newDist / fd.startDist;
+          state.frame.userScale = clamp(fd.startUserScale * scaleFactor, 0.25, 3.0);
+          item.zoom = clamp(fd.startZoom / scaleFactor, 20, 400);
+          syncZoomUi();
+          drawPreview();
+          return;
+        }
+
+        if (fd.mode === 'move') {
+          const dx = point.x - fd.startX;
+          const dy = point.y - fd.startY;
+          state.frame.offsetX = fd.startOffsetX + dx;
+          state.frame.offsetY = fd.startOffsetY + dy;
+          item.panX = fd.startPanX - dx;
+          item.panY = fd.startPanY - dy;
+          drawPreview();
+          return;
+        }
+      }
+
+      if (state.dragging) {
+        if (!item || item.id !== state.dragging.id) return;
+        item.panX = state.dragging.panX + (point.x - state.dragging.startX);
+        item.panY = state.dragging.panY + (point.y - state.dragging.startY);
+        drawPreview();
+        return;
+      }
+
+      // Update cursor based on frame hit when not dragging
+      if (item) {
+        const frame = getFrameRect(previewCanvas.width, previewCanvas.height);
+        previewCanvas.style.cursor = frameDragCursor(getFrameHit(point, frame));
+      }
     });
 
     function endDrag(event) {
+      if (state.frameDrag) {
+        try { previewCanvas.releasePointerCapture(event.pointerId); } catch (_) { /* safe: pointer may not be captured */ }
+        state.frameDrag = null;
+        recordHistory();
+        return;
+      }
       if (!state.dragging) return;
       try {
         previewCanvas.releasePointerCapture(event.pointerId);
-      } catch (error) {}
+      } catch (_) { /* safe: pointer may not be captured */ }
       previewCanvas.classList.remove('dragging');
       state.dragging = null;
       recordHistory();

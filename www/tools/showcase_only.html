@@ -572,8 +572,8 @@
           <div class="triple">
 
             <div class="row">
-              <div class="value-row"><label for="showcaseTileWidth">Kachelbreite</label><span id="showcaseTileWidthVal">260 px</span></div>
-              <input id="showcaseTileWidth" type="range" min="160" max="420" value="260" />
+              <div class="value-row"><label for="showcaseTileWidth">Kachelbreite</label><span id="showcaseTileWidthVal">180 px</span></div>
+              <input id="showcaseTileWidth" type="range" min="120" max="420" value="180" />
             </div>
 
             <div class="hint" style="display:flex;align-items:center;justify-content:center;text-align:center;">
@@ -1037,7 +1037,7 @@
     }
 
     function getShowcaseMetrics() {
-      const tileWidth = clamp(Number(controls.tileWidth.value) || 260, 160, 420);
+      const tileWidth = clamp(Number(controls.tileWidth.value) || 180, 120, 420);
       return {
         columns: clamp(Number(controls.columns.value) || 3, 1, 8),
         rows: clamp(Number(controls.rows.value) || 2, 1, 20),
